@@ -1,10 +1,56 @@
 from __future__ import annotations
 
+import tempfile
 import zipfile
 from io import BytesIO
+from pathlib import Path
 
 import pymupdf as fitz
+from alembic import command
+from alembic.config import Config
 from docx import Document
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+
+def run_migrations(database_url: str) -> None:
+    _validate_migration_target(database_url)
+    config = Config(str(PROJECT_ROOT / "alembic.ini"))
+    config.set_main_option("script_location", str(PROJECT_ROOT / "alembic"))
+    config.attributes["database_url"] = database_url
+    command.upgrade(config, "head")
+
+
+def _validate_migration_target(database_url: str) -> None:
+    prefix = "sqlite:///"
+    if not database_url.startswith(prefix):
+        raise ValueError(
+            "Refusing to run migrations: tests may only target isolated SQLite "
+            "databases under the system temporary directory."
+        )
+
+    database_path = database_url.removeprefix(prefix)
+    if not database_path or any(char in database_path for char in "?#"):
+        raise ValueError(
+            "Refusing to run migrations: the SQLite target must be a plain file "
+            "path under the system temporary directory."
+        )
+
+    path = Path(database_path)
+    if not path.is_absolute():
+        raise ValueError(
+            "Refusing to run migrations: the SQLite target must be an absolute "
+            "path under the system temporary directory."
+        )
+
+    temp_root = Path(tempfile.gettempdir()).resolve()
+    try:
+        path.resolve().relative_to(temp_root)
+    except ValueError:
+        raise ValueError(
+            "Refusing to run migrations: the SQLite target is outside the "
+            "system temporary directory."
+        ) from None
 
 
 def make_docx_bytes(

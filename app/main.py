@@ -57,13 +57,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def lifespan(_: FastAPI):
         settings.ensure_directories()
         storage.ensure()
-        database.create_all()
-        logger.info(
-            "TranslateDocs started (provider=%s, database=%s)",
-            provider.name,
-            _database_label(settings.database_url),
-        )
         try:
+            database.require_current_schema()
+            logger.info(
+                "TranslateDocs started (provider=%s, database=%s)",
+                provider.name,
+                _database_label(settings.database_url),
+            )
             yield
         finally:
             database.dispose()

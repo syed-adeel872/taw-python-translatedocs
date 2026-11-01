@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 
 from app.config import Settings
 from app.main import create_app
+from tests.helpers import run_migrations
 
 
 @pytest.fixture
@@ -26,6 +27,7 @@ def settings(tmp_path) -> Settings:
 
 @pytest.fixture
 def app(settings: Settings) -> FastAPI:
+    run_migrations(settings.database_url)
     return create_app(settings)
 
 
