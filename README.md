@@ -4,7 +4,7 @@ TranslateDocs is a Python and FastAPI application for translating DOCX and PDF e
 
 The application supports a deterministic mock provider for development and a provider interface for Gemini and OpenAI-compatible endpoints. The current default is mock mode; it does not produce real translations.
 
-> **Project status:** Early-stage evaluation project. The mock workflow is covered by automated tests. PostgreSQL runtime integration and live AI provider calls are **not verified**. The application is **not ready for public deployment** because authentication, rate limiting, output retention, and other abuse controls are not implemented.
+> **Project status:** Early-stage evaluation project. The mock DOCX/PDF workflow is covered by automated tests and was verified against the configured Neon PostgreSQL database. Live Gemini and OpenAI-compatible provider calls are **not verified**. The application is **not ready for public deployment** because authentication, rate limiting, output retention, and other abuse controls are not implemented.
 
 ## Features
 
@@ -91,7 +91,7 @@ tests/                          Pytest suite
 scripts/make_samples.py         Synthetic sample generator
 samples/                        Generated synthetic DOCX and PDF samples
 docs/                           Architecture documentation
-screenshots/                    Reserved; currently empty
+screenshots/                    Genuine local application screenshots
 ```
 
 ## Prerequisites
@@ -171,7 +171,7 @@ The provider factory also accepts the aliases `openai`, `groq`, `openrouter`, an
 
 ## Database setup
 
-PostgreSQL is the intended database. Create a PostgreSQL database and user through your local PostgreSQL installation, hosting provider, or managed database console, then set `DATABASE_URL` in `.env` to a URL using the `postgresql+psycopg://` driver.
+PostgreSQL is the intended database. Create a PostgreSQL database and user through your local PostgreSQL installation, hosting provider, or managed database console, then set `DATABASE_URL` in `.env` to a URL using the `postgresql+psycopg://` driver. For Neon, use the direct (non-pooler) hostname for migrations and keep `sslmode=require`.
 
 Run the migration from the repository root with the virtual environment active:
 
@@ -194,7 +194,17 @@ Important behavior:
 - If a local database already contains a `jobs` table without `alembic_version`, do not stamp it blindly. Back it up and reconcile it manually.
 - The test suite uses isolated temporary SQLite databases and does not require PostgreSQL.
 
-PostgreSQL runtime migration has **not been verified** in this repository. The migration is portable by inspection, but there is no recorded PostgreSQL execution, CI job, or deployment evidence.
+PostgreSQL runtime verification was completed on **2026-11-02** against the configured Neon direct endpoint:
+
+- `alembic upgrade head` applied revision `0001`.
+- `alembic current` reported `0001 (head)`.
+- The `jobs` and `alembic_version` tables and both `jobs` indexes were verified.
+- `Database.require_current_schema()` passed.
+- Local startup and `/health` passed with database `ok` and provider `mock`.
+- One synthetic DOCX and one synthetic PDF completed upload-to-download with the mock provider.
+- Smoke-test job rows and generated output files were removed afterward.
+
+The automated suite still uses SQLite. There is no CI PostgreSQL job, production backup, or public deployment evidence.
 
 ## Running the application
 
@@ -252,7 +262,7 @@ Test limitations:
 - There is no browser-based end-to-end test.
 - There is no load, concurrency, restart-recovery, zip-bomb, or output-retention test.
 
-The last recorded local run in this workspace reported **64 passed, 1 warning** (a Starlette/httpx deprecation warning). This count may change as tests are added.
+The latest local run in this workspace reported **67 passed, 1 warning** (a Starlette/httpx deprecation warning) in 26.06 seconds.
 
 ## Synthetic sample documents
 
@@ -352,6 +362,18 @@ Current limitations:
 - No malware or document-content scanning.
 - No OCR.
 - `HOST`/`PORT` do not configure TLS or a reverse proxy.
+- The Content Security Policy still allows inline scripts because the job page uses inline JavaScript; moving it to a static file would allow a stricter policy.
+
+Implemented mitigations:
+
+- Uploads are validated by extension, size, file signature, and real DOCX/PDF structure.
+- Stored files use generated UUID names; path traversal is rejected.
+- Uploaded files are capped at 10 MB by default and streamed into a bounded reader.
+- Template output is autoescaped, and client-side status rendering uses `textContent`.
+- Downloads require a completed job and a valid stored output path.
+- Responses set `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, and a restrictive CSP.
+- Job pages, status APIs, and downloads use `Cache-Control: no-store`.
+- Unexpected exceptions are logged server-side and returned to users as generic messages.
 
 Privacy behavior:
 
@@ -365,29 +387,41 @@ Use synthetic samples or non-sensitive documents for evaluation.
 
 ## Current project status and known gaps
 
-- Latest committed code baseline at documentation time: `6e028ffdc2372e3e287dc32568821c15edeb2349`.
-- The DOCX and PDF mock workflows are implemented and covered by automated tests.
-- PostgreSQL runtime integration is **not verified**.
+- The DOCX and PDF mock workflows are implemented, covered by automated tests, and were verified end-to-end against Neon PostgreSQL on 2026-11-02.
+- PostgreSQL migration `0001`, schema readiness, startup, `/health`, and the synthetic DOCX/PDF smoke workflow are verified.
 - Live Gemini and OpenAI-compatible provider calls are **not verified**.
-- This README and `docs/architecture.md` are new documentation additions.
-- No screenshots or demo video are currently available.
+- The automated suite uses isolated SQLite databases; there is no automated PostgreSQL integration job.
+- Genuine screenshots are available in `screenshots/`.
+- No demo video is recorded; the recording script is available at [docs/demo-script.md](docs/demo-script.md).
 - No deployment URL, deployment configuration, or public demo exists.
-- No CI workflow or dependency lockfile exists.
-- No authentication, rate limiting, or output retention controls exist.
-- No real PostgreSQL or live provider evidence exists in the repository.
-- No screenshots or demo evidence should be inferred from the UI.
+- No CI workflow, Docker configuration, or dependency lockfile exists.
+- No authentication, rate limiting, CSRF protection, or output retention controls exist.
+- DOCX formatting is approximate; PDF output is a reconstructed text PDF that intentionally does not preserve original graphics or exact layout.
 
 ## Demo video
 
-**Not yet available.** A demo video has not been recorded or published. Do not treat this section as a link to an existing demo.
+**Not recorded.** Follow the 60–90 second script in [docs/demo-script.md](docs/demo-script.md). Recording still requires a user-operated external tool such as Loom; no video URL is claimed.
 
 ## Screenshots
 
-**Not yet available.** The `screenshots/` directory is currently empty.
+These screenshots were captured from the local application connected to the Neon PostgreSQL database with the mock provider. The smoke-test job records and generated output files were removed afterward.
+
+### Upload page
+
+![TranslateDocs upload page](screenshots/01-upload-page.png)
+
+### Completed DOCX translation
+
+![Completed DOCX job with download link and output filename](screenshots/02-docx-completed.png)
+
+### Completed PDF translation
+
+![Completed PDF job with formatting limitations](screenshots/03-pdf-completed.png)
 
 ## Documentation
 
 - [Architecture](docs/architecture.md)
+- [Demo script](docs/demo-script.md)
 - [Environment example](.env.example)
 
 ## License

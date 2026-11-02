@@ -1,6 +1,6 @@
 # Architecture
 
-This document describes the current TranslateDocs implementation. It reflects the committed codebase and does not claim that PostgreSQL or live AI provider integrations have been verified.
+This document describes the current TranslateDocs implementation. PostgreSQL migration `0001`, the startup schema gate, local health, and a synthetic DOCX/PDF mock workflow were verified against Neon on 2026-11-02. Live Gemini and OpenAI-compatible provider calls remain unverified.
 
 ## System overview
 
@@ -162,7 +162,20 @@ The `Job` model is defined in `app/models.py` and stored in the `jobs` table.
 - The revision must exactly match the current Alembic head.
 - The `jobs` table must exist.
 
-The check does not validate every column or index at startup, and PostgreSQL execution is not verified by available evidence.
+The check does not validate every column or index at startup. PostgreSQL execution of migration `0001`, the schema gate, and application health was verified against Neon; the limitation remains that the automated suite uses SQLite rather than PostgreSQL.
+
+### PostgreSQL verification
+
+On 2026-11-02, the configured Neon direct endpoint was verified with the mock provider:
+
+- `alembic upgrade head` applied revision `0001`; `alembic current` reported `0001 (head)`.
+- The `jobs` and `alembic_version` tables and both `jobs` indexes were present.
+- `Database.require_current_schema()` passed.
+- The local application started and `/health` returned database `ok` and provider `mock`.
+- One synthetic DOCX and one synthetic PDF completed upload-to-download, including valid downloadable outputs.
+- The exact smoke-test job rows and generated output files were removed afterward.
+
+This was a manual, direct-endpoint smoke test. It is not an automated PostgreSQL CI test, and no production database, backup, or deployment configuration is claimed.
 
 ## Upload-to-download workflow
 
@@ -193,7 +206,7 @@ The check does not validate every column or index at startup, and PostgreSQL exe
 
 ## Deployment boundary
 
-There is no deployment configuration or public deployment evidence in the repository.
+There is no deployment configuration or public deployment evidence in the repository. Public deployment remains pending and is not recommended in the current state.
 
 Do not expose the application publicly without first adding:
 
@@ -213,11 +226,13 @@ Do not expose the application publicly without first adding:
 | Mock PDF upload-to-download workflow | Verified by automated tests |
 | Mock/provider abstraction unit behavior | Verified by automated tests |
 | SQLite migration and schema gate | Verified by automated tests |
-| PostgreSQL connection and migration | Not verified |
+| PostgreSQL connection, revision `0001`, schema gate, startup health | Verified manually on Neon, 2026-11-02 |
+| PostgreSQL synthetic DOCX/PDF mock workflow | Verified manually on Neon; smoke rows and files cleaned up |
+| Automated PostgreSQL test job | Not present; automated tests use SQLite |
 | Live Gemini call | Not verified |
 | Live OpenAI-compatible call | Not verified |
-| Browser-based UI and screenshots | Not verified; screenshots directory is empty |
-| Demo video | Not available |
+| Browser screenshots | Captured from the local app on 2026-11-02; interactive flow is not automated |
+| Demo video | Not recorded; script available in `docs/demo-script.md` |
 | Public deployment | Not available and not recommended in current state |
 
 See the [README](../README.md) for setup, configuration, testing, and security notes.
