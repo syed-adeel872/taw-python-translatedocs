@@ -262,7 +262,7 @@ Test limitations:
 - There is no browser-based end-to-end test.
 - There is no load, concurrency, restart-recovery, zip-bomb, or output-retention test.
 
-The latest local run in this workspace reported **67 passed, 1 warning** (a Starlette/httpx deprecation warning) in 26.06 seconds.
+The latest local run in this workspace reported **67 passed, 1 warning** (a Starlette/httpx deprecation warning) in about 26 seconds.
 
 ## Synthetic sample documents
 
