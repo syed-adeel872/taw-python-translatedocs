@@ -14,6 +14,19 @@ Target length: **60–90 seconds**. Use the synthetic files in `samples/` only. 
 3. Keep `samples/sample_export_invoice.docx` and `samples/sample_packing_list.pdf` ready.
 4. Confirm the provider is `mock`; do not describe the output as a live AI translation.
 
+## Recording checklist
+
+- [ ] Open `http://127.0.0.1:8000` and show the upload page.
+- [ ] Confirm the development-mode banner says the mock provider is active.
+- [ ] DOCX: upload `samples/sample_export_invoice.docx`, source English, target Spanish.
+- [ ] Show the completed heading, output filename `sample_export_invoice-es.docx`, segment count, character count, and download button.
+- [ ] Download the DOCX and open it in Word or LibreOffice; show translated body text, table text, header, footer, and preserved heading/bold formatting.
+- [ ] PDF: upload `samples/sample_packing_list.pdf`, source English, target French.
+- [ ] Show the completed heading, output filename `sample_packing_list-fr.pdf`, segment count, character count, and download button.
+- [ ] Download the PDF and open it; show translated text on both pages and state the layout limitations.
+- [ ] Optionally show the architecture page and the security limitations.
+- [ ] Keep `.env`, terminal output, database URLs, job tokens, and private documents off screen.
+
 ## Recording flow
 
 ### 0:00–0:10 — Opening
@@ -45,6 +58,7 @@ Target length: **60–90 seconds**. Use the synthetic files in `samples/` only. 
 - Output filename: `sample_export_invoice-es.docx`
 - Segment and character counts.
 - Download button.
+- Download and open the DOCX to show translated body, table, header, and footer text with preserved heading and bold formatting.
 
 **Say:**
 
@@ -64,7 +78,7 @@ Target length: **60–90 seconds**. Use the synthetic files in `samples/` only. 
 
 > PDFs use a text-extraction and reconstruction path. This keeps the translated content readable and downloadable, but it does not preserve the original page layout, graphics, or exact typography.
 
-**Show:** The completed job page and output filename `sample_packing_list-fr.pdf`.
+**Show:** The completed job page and output filename `sample_packing_list-fr.pdf`. Download and open the PDF to show translated text on both pages.
 
 **Say:**
 
@@ -72,7 +86,7 @@ Target length: **60–90 seconds**. Use the synthetic files in `samples/` only. 
 
 ### 0:55–1:15 — Architecture and limitations
 
-**Show:** The job page and, optionally, the architecture page.
+**Show:** The job page and, optionally, `docs/architecture.md`.
 
 **Say:**
 
@@ -84,7 +98,7 @@ Target length: **60–90 seconds**. Use the synthetic files in `samples/` only. 
 
 **Say:**
 
-> The repository includes 67 passing automated tests, PostgreSQL smoke evidence, genuine screenshots, a demo script, and explicit limitations. The remaining submission step is recording this walkthrough.
+> The repository includes 67 passing automated tests, PostgreSQL smoke evidence, genuine screenshots, a demo script, and explicit limitations. The remaining demo deliverable is recording this walkthrough.
 
 ## Cleanup after recording
 

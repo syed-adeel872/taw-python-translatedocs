@@ -262,7 +262,7 @@ Test limitations:
 - There is no browser-based end-to-end test.
 - There is no load, concurrency, restart-recovery, zip-bomb, or output-retention test.
 
-The latest local run in this workspace reported **67 passed, 1 warning** (a Starlette/httpx deprecation warning) in about 26 seconds.
+The latest local run in this workspace reported **67 passed, 1 warning** (a Starlette/httpx deprecation warning).
 
 ## Synthetic sample documents
 
@@ -394,6 +394,7 @@ Use synthetic samples or non-sensitive documents for evaluation.
 - Genuine screenshots are available in `screenshots/`.
 - No demo video is recorded; the recording script is available at [docs/demo-script.md](docs/demo-script.md).
 - No deployment URL, deployment configuration, or public demo exists.
+- Zero-cost deployment assessment: no safe public deployment is practical under the current no-authentication and ephemeral-storage constraints; see [docs/deployment-assessment.md](docs/deployment-assessment.md).
 - No CI workflow, Docker configuration, or dependency lockfile exists.
 - No authentication, rate limiting, CSRF protection, or output retention controls exist.
 - DOCX formatting is approximate; PDF output is a reconstructed text PDF that intentionally does not preserve original graphics or exact layout.
@@ -422,6 +423,7 @@ These screenshots were captured from the local application connected to the Neon
 
 - [Architecture](docs/architecture.md)
 - [Demo script](docs/demo-script.md)
+- [Deployment assessment](docs/deployment-assessment.md)
 - [Environment example](.env.example)
 
 ## License

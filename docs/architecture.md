@@ -206,7 +206,7 @@ This was a manual, direct-endpoint smoke test. It is not an automated PostgreSQL
 
 ## Deployment boundary
 
-There is no deployment configuration or public deployment evidence in the repository. Public deployment remains pending and is not recommended in the current state.
+There is no deployment configuration or public deployment evidence in the repository. Public deployment remains pending and is not recommended in the current state. See [deployment-assessment.md](deployment-assessment.md) for the zero-cost assessment and the recorded-demo fallback.
 
 Do not expose the application publicly without first adding:
 
