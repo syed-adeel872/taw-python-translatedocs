@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+{% block title %}Translation {{ job.status }} - {{ app_name }}{% endblock %}
+{% block content %}
+<section class="hero compact">
+  <p class="eyebrow">Translation job</p>
+  <h1 id="job-heading">
+    {% if job.status == 'completed' %}Translation complete.
+    {% elif job.status == 'failed' %}Translation did not complete.
+    {% else %}Your document is being processed.{% endif %}
+  </h1>
+  <p id="job-lede" class="lede">
+    {% if job.status == 'completed' %}Download the translated file below and review formatting before sharing.
+    {% elif job.status == 'failed' %}Review the error message below and try another document.
+    {% else %}This page updates automatically. You can leave it open while the translation runs.{% endif %}
+  </p>
+</section>
+
+<noscript>
+  <div class="alert alert-info">JavaScript is disabled. Refresh this page to see the latest status.</div>
+</noscript>
+
+<section class="card job-card" id="job-app" data-job-id="{{ job.id }}" data-status="{{ job.status }}">
+  <div class="job-heading">
+    <div>
+      <p class="job-file">{{ job.original_filename }}</p>
+      <p class="job-meta">
+        {{ job.source_language|upper }} &rarr; {{ job.target_language|upper }}
+        &middot; {{ job.file_type|upper }}
+        &middot; provider: {{ job.provider }}
+      </p>
+    </div>
+    <span id="status-badge" class="badge status-{{ job.status }}">{{ status_label }}</span>
+  </div>
+
+  <div class="progress-track" aria-hidden="true">
+    <div id="progress-bar" class="progress-bar {% if job.status == 'completed' %}is-complete{% elif job.status == 'failed' %}is-failed{% elif job.status == 'processing' %}is-processing{% endif %}"
+         style="width: {% if job.status == 'completed' or job.status == 'failed' %}100{% elif job.status == 'processing' %}55{% else %}12{% endif %}%"></div>
+  </div>
+
+  <p id="status-text" class="status-text">
+    {% if job.status == 'queued' %}Waiting to start...
+    {% elif job.status == 'processing' %}Extracting text and translating...
+    {% elif job.status == 'completed' %}Translation complete.
+    {% else %}Translation failed.{% endif %}
+  </p>
+
+  <div id="error-box" class="alert alert-error" role="alert" {% if not job.error_message %}hidden{% endif %}>
+    {{ job.error_message or '' }}
+  </div>
+
+  <div id="download-box" class="download-box" {% if job.status != 'completed' %}hidden{% endif %}>
+    <a id="download-link" class="button" href="{% if job.status == 'completed' %}/jobs/{{ job.id }}/download{% else %}#{% endif %}">
+      Download translated {{ job.file_type|upper }}
+    </a>
+    <p class="hint">The output keeps the original file type. Review formatting before sharing.</p>
+  </div>
+
+  <dl id="job-stats" class="stats" {% if job.status != 'completed' %}hidden{% endif %}>
+    <div><dt>Segments</dt><dd id="stat-segments">{{ job.segments_translated }}</dd></div>
+    <div><dt>Characters</dt><dd id="stat-characters">{{ job.characters_translated }}</dd></div>
+    <div><dt>Output</dt><dd id="stat-output">{{ job.output_filename or '-' }}</dd></div>
+  </dl>
+
+  <div id="warnings-box" class="note" {% if not warnings %}hidden{% endif %}>
+    <h3>Formatting notes</h3>
+    <ul id="warnings-list">
+      {% for warning in warnings %}<li>{{ warning }}</li>{% endfor %}
+    </ul>
+  </div>
+</section>
+
+<p class="back-link"><a href="/">&larr; Translate another document</a></p>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function () {
+    const root = document.getElementById("job-app");
+    if (!root) return;
+
+    const jobId = root.dataset.jobId;
+    const labels = { queued: "Queued", processing: "Translating", completed: "Completed", failed: "Failed" };
+    const heading = document.getElementById("job-heading");
+    const lede = document.getElementById("job-lede");
+    const badge = document.getElementById("status-badge");
+    const bar = document.getElementById("progress-bar");
+    const statusText = document.getElementById("status-text");
+    const errorBox = document.getElementById("error-box");
+    const downloadBox = document.getElementById("download-box");
+    const downloadLink = document.getElementById("download-link");
+    const stats = document.getElementById("job-stats");
+    const statSegments = document.getElementById("stat-segments");
+    const statCharacters = document.getElementById("stat-characters");
+    const statOutput = document.getElementById("stat-output");
+    const warningsBox = document.getElementById("warnings-box");
+    const warningsList = document.getElementById("warnings-list");
+
+    function setStatus(status) {
+      root.dataset.status = status;
+      badge.textContent = labels[status] || status;
+      badge.className = "badge status-" + status;
+      bar.className = "progress-bar";
+      if (status === "completed") {
+        heading.textContent = "Translation complete.";
+        lede.textContent = "Download the translated file below and review formatting before sharing.";
+        bar.classList.add("is-complete");
+        bar.style.width = "100%";
+      } else if (status === "failed") {
+        heading.textContent = "Translation did not complete.";
+        lede.textContent = "Review the error message below and try another document.";
+        bar.classList.add("is-failed");
+        bar.style.width = "100%";
+      } else if (status === "processing") {
+        heading.textContent = "Your document is being processed.";
+        lede.textContent = "This page updates automatically. You can leave it open while the translation runs.";
+        bar.classList.add("is-processing");
+        bar.style.width = "55%";
+      } else {
+        heading.textContent = "Your document is being processed.";
+        lede.textContent = "This page updates automatically. You can leave it open while the translation runs.";
+        bar.style.width = "12%";
+      }
+    }
+
+    function renderWarnings(warnings) {
+      warningsList.replaceChildren();
+      if (!warnings || !warnings.length) {
+        warningsBox.hidden = true;
+        return;
+      }
+      for (const warning of warnings) {
+        const item = document.createElement("li");
+        item.textContent = warning;
+        warningsList.appendChild(item);
+      }
+      warningsBox.hidden = false;
+    }
+
+    function render(data) {
+      setStatus(data.status);
+
+      if (data.status === "queued") {
+        statusText.textContent = "Waiting to start...";
+      } else if (data.status === "processing") {
+        statusText.textContent = "Extracting text and translating...";
+      } else if (data.status === "completed") {
+        statusText.textContent = "Translation complete. Your download is ready.";
+        downloadLink.href = data.download_url;
+        downloadLink.textContent = "Download translated " + data.file_type.toUpperCase();
+        downloadBox.hidden = false;
+        stats.hidden = false;
+        statSegments.textContent = data.segments_translated;
+        statCharacters.textContent = data.characters_translated.toLocaleString();
+        statOutput.textContent = data.output_filename || data.original_filename;
+        errorBox.hidden = true;
+      } else if (data.status === "failed") {
+        statusText.textContent = "Translation failed.";
+        errorBox.textContent = data.error_message || "The document could not be translated.";
+        errorBox.hidden = false;
+        downloadBox.hidden = true;
+      }
+
+      renderWarnings(data.warnings);
+    }
+
+    async function poll() {
+      if (root.dataset.status === "completed" || root.dataset.status === "failed") return;
+      try {
+        const response = await fetch("/api/jobs/" + encodeURIComponent(jobId), {
+          headers: { "Accept": "application/json" },
+          cache: "no-store"
+        });
+        if (!response.ok) throw new Error("HTTP " + response.status);
+        render(await response.json());
+      } catch (error) {
+        statusText.textContent = "Could not refresh the status. Retrying...";
+      }
+      if (root.dataset.status !== "completed" && root.dataset.status !== "failed") {
+        window.setTimeout(poll, 1500);
+      }
+    }
+
+    if (root.dataset.status !== "completed" && root.dataset.status !== "failed") {
+      window.setTimeout(poll, 600);
+    }
+  })();
+</script>
+{% endblock %}

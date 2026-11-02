@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}{{ app_name }} - translate export documents{% endblock %}
+{% block content %}
+<section class="hero">
+  <p class="eyebrow">AI document translation for exporters</p>
+  <h1>Translate export documents without rebuilding them.</h1>
+  <p class="lede">
+    Upload a DOCX or PDF, choose the target language, and download a translated
+    file that keeps the original structure where practical.
+  </p>
+</section>
+
+{% if error %}
+<div class="alert alert-error" role="alert">{{ error }}</div>
+{% endif %}
+
+{% if is_mock %}
+<div class="alert alert-info" role="status">
+  <strong>Development mode.</strong>
+  The mock provider is active, so output text is marked with the language code
+  instead of being translated by AI. Set <code>AI_PROVIDER=gemini</code> and
+  <code>GEMINI_API_KEY</code> in <code>.env</code> to use real translation.
+</div>
+{% endif %}
+
+<div class="layout-grid">
+  <section class="card">
+    <h2>New translation</h2>
+    <form class="translate-form" action="/translate" method="post" enctype="multipart/form-data">
+      <div class="field">
+        <label for="file">DOCX or PDF document</label>
+        <div class="file-control">
+          <input id="file" name="file" type="file" accept=".docx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" required>
+          <span id="file-name" class="file-name">No file selected</span>
+        </div>
+        <p class="hint">Maximum size: {{ max_upload_mb }} MB. Scanned PDFs are not supported.</p>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="source_language">Source language</label>
+          <select id="source_language" name="source_language">
+            {% for code, name in all_languages.items() %}
+            <option value="{{ code }}" {% if prefill.get('source_language', 'auto') == code %}selected{% endif %}>{{ name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label for="target_language">Target language</label>
+          <select id="target_language" name="target_language" required>
+            {% for code, name in languages.items() %}
+            <option value="{{ code }}" {% if prefill.get('target_language') == code %}selected{% endif %}>{{ name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <button class="button" type="submit">Translate document</button>
+      <p class="hint">Processing usually takes a few seconds to a minute, depending on document length.</p>
+    </form>
+  </section>
+
+  <aside class="card side-card">
+    <h2>What to expect</h2>
+    <ul class="check-list">
+      <li><strong>DOCX:</strong> headings, paragraphs, tables, headers and footers kept; bold and italic formatting retained where possible.</li>
+      <li><strong>PDF:</strong> text extracted in reading order; page size and page breaks preserved where practical.</li>
+      <li><strong>Privacy:</strong> only job metadata is stored in the database. Uploaded source files are deleted after processing.</li>
+    </ul>
+
+    <div class="note">
+      <h3>Honest limitations</h3>
+      <ul>
+        <li>Complex PDF layouts, columns, images and exact fonts are not preserved.</li>
+        <li>Scanned PDFs need OCR and are rejected with an explanation.</li>
+        <li>Very long documents may hit provider rate limits.</li>
+      </ul>
+    </div>
+
+    <p class="provider-line">Active provider: <strong>{{ provider_name }}</strong></p>
+  </aside>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function () {
+    const input = document.getElementById("file");
+    const label = document.getElementById("file-name");
+    if (!input || !label) return;
+    input.addEventListener("change", function () {
+      label.textContent = input.files && input.files.length
+        ? input.files[0].name
+        : "No file selected";
+    });
+  })();
+</script>
+{% endblock %}

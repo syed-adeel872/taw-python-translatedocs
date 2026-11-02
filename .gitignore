@@ -1,0 +1,45 @@
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Runtime data (uploaded / generated documents and databases)
+instance/
+data/
+uploads/
+outputs/
+*.log
+*.db
+*.sqlite
+*.sqlite3
+*.dump
+
+# Local tooling / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Test artefacts
+screenshots/*.tmp.png
+
+# Temporary/local runtime files
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+*~
+*.pid

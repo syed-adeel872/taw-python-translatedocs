@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ app_name }}{% endblock %}</title>
+  <meta name="description" content="Translate DOCX and PDF export documents while keeping their structure.">
+  <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="/">
+      <span class="brand-mark" aria-hidden="true">TD</span>
+      <span>
+        <strong>{{ app_name }}</strong>
+        <small>Think AI Works</small>
+      </span>
+    </a>
+    <nav class="site-nav" aria-label="Main navigation">
+      <a href="/">Translate a document</a>
+      <a href="/health">Service status</a>
+    </nav>
+  </header>
+
+  <main class="page">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="site-footer">
+    <p>Built for exporters. Free and open tooling only.</p>
+    <p>Upload synthetic or non-sensitive documents during evaluation.</p>
+  </footer>
+  {% block scripts %}{% endblock %}
+</body>
+</html>
