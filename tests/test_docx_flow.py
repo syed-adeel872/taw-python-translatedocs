@@ -56,12 +56,14 @@ def test_valid_docx_upload_translates_and_downloads(client, app, settings):
     page = client.get(f"/jobs/{job_id}")
     assert page.status_code == 200
     assert "sample.docx" in page.text
+    assert "Translation complete." in page.text
 
     status = client.get(f"/api/jobs/{job_id}")
     assert status.status_code == 200
     payload = status.json()
     assert payload["status"] == "completed"
     assert payload["provider"] == "mock"
+    assert payload["output_filename"] == "sample-es.docx"
     assert payload["segments_translated"] == 5
     assert payload["download_url"] == f"/jobs/{job_id}/download"
     assert payload["warnings"]
@@ -109,6 +111,9 @@ def test_empty_docx_fails_with_clear_message(client):
 
     assert payload["status"] == "failed"
     assert "no translatable text" in payload["error_message"].lower()
+
+    page = client.get(f"/jobs/{job_id}")
+    assert "Translation did not complete." in page.text
 
 
 def test_structurally_invalid_docx_fails_during_processing(client):

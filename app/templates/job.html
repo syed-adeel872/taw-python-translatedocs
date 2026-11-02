@@ -3,8 +3,16 @@
 {% block content %}
 <section class="hero compact">
   <p class="eyebrow">Translation job</p>
-  <h1>Your document is being processed.</h1>
-  <p class="lede">This page updates automatically. You can leave it open while the translation runs.</p>
+  <h1 id="job-heading">
+    {% if job.status == 'completed' %}Translation complete.
+    {% elif job.status == 'failed' %}Translation did not complete.
+    {% else %}Your document is being processed.{% endif %}
+  </h1>
+  <p id="job-lede" class="lede">
+    {% if job.status == 'completed' %}Download the translated file below and review formatting before sharing.
+    {% elif job.status == 'failed' %}Review the error message below and try another document.
+    {% else %}This page updates automatically. You can leave it open while the translation runs.{% endif %}
+  </p>
 </section>
 
 <noscript>
@@ -72,6 +80,8 @@
 
     const jobId = root.dataset.jobId;
     const labels = { queued: "Queued", processing: "Translating", completed: "Completed", failed: "Failed" };
+    const heading = document.getElementById("job-heading");
+    const lede = document.getElementById("job-lede");
     const badge = document.getElementById("status-badge");
     const bar = document.getElementById("progress-bar");
     const statusText = document.getElementById("status-text");
@@ -91,15 +101,23 @@
       badge.className = "badge status-" + status;
       bar.className = "progress-bar";
       if (status === "completed") {
+        heading.textContent = "Translation complete.";
+        lede.textContent = "Download the translated file below and review formatting before sharing.";
         bar.classList.add("is-complete");
         bar.style.width = "100%";
       } else if (status === "failed") {
+        heading.textContent = "Translation did not complete.";
+        lede.textContent = "Review the error message below and try another document.";
         bar.classList.add("is-failed");
         bar.style.width = "100%";
       } else if (status === "processing") {
+        heading.textContent = "Your document is being processed.";
+        lede.textContent = "This page updates automatically. You can leave it open while the translation runs.";
         bar.classList.add("is-processing");
         bar.style.width = "55%";
       } else {
+        heading.textContent = "Your document is being processed.";
+        lede.textContent = "This page updates automatically. You can leave it open while the translation runs.";
         bar.style.width = "12%";
       }
     }
@@ -133,7 +151,7 @@
         stats.hidden = false;
         statSegments.textContent = data.segments_translated;
         statCharacters.textContent = data.characters_translated.toLocaleString();
-        statOutput.textContent = data.original_filename;
+        statOutput.textContent = data.output_filename || data.original_filename;
         errorBox.hidden = true;
       } else if (data.status === "failed") {
         statusText.textContent = "Translation failed.";

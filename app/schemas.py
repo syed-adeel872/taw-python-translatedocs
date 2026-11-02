@@ -18,6 +18,7 @@ class JobStatusResponse(BaseModel):
     target_language: str
     provider: str
     error_message: str | None = None
+    output_filename: str | None = None
     warnings: list[str] = []
     characters_translated: int = 0
     segments_translated: int = 0
@@ -40,6 +41,7 @@ class JobStatusResponse(BaseModel):
             target_language=job.target_language,
             provider=job.provider,
             error_message=job.error_message,
+            output_filename=job.output_filename,
             warnings=warnings,
             characters_translated=job.characters_translated,
             segments_translated=job.segments_translated,
