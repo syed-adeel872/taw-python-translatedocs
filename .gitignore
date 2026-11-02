@@ -15,12 +15,16 @@ htmlcov/
 .mypy_cache/
 .ruff_cache/
 
-# Runtime data (uploaded / generated documents)
+# Runtime data (uploaded / generated documents and databases)
 instance/
 data/
 uploads/
 outputs/
 *.log
+*.db
+*.sqlite
+*.sqlite3
+*.dump
 
 # Local tooling / OS
 .vscode/
