@@ -44,12 +44,18 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     gemini_model: str = "gemini-2.5-flash"
 
+    openai_api_key: str = ""
+    openai_model: str = "gpt-4o-mini"
+
+    anthropic_api_key: str = ""
+    anthropic_model: str = "claude-sonnet-4-5"
+
     openai_compat_api_key: str = ""
     openai_compat_base_url: str = ""
     openai_compat_model: str = ""
 
     ai_timeout_seconds: float = Field(default=60.0, gt=0, le=300)
-    ai_max_retries: int = Field(default=2, ge=0, le=5)
+    ai_max_retries: int = Field(default=3, ge=0, le=5)
     ai_batch_size: int = Field(default=20, ge=1, le=100)
     max_document_chars: int = Field(default=400_000, ge=1_000)
     pdf_font_path: str = ""

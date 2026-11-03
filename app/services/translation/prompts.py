@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from app.languages import language_name
 
+TRANSLATION_SYSTEM_PROMPT = (
+    "You are a translation engine. Reply with JSON only. Never add commentary."
+)
+
 
 def build_batch_prompt(
     texts: list[str], source_language: str, target_language: str
