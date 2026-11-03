@@ -270,7 +270,7 @@ Test limitations:
 - There is no browser-based end-to-end test.
 - There is no load, concurrency, restart-recovery, zip-bomb, or output-retention test.
 
-The latest local run in this workspace reported **99 passed in 44.42s** on Python 3.13.5. Re-run the commands above to confirm the current count.
+The latest local run in this workspace reported **99 passed** on Python 3.13.5. Re-run the commands above to confirm the current count.
 
 ## Synthetic sample documents
 
