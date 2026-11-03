@@ -98,7 +98,7 @@ Target length: **60–90 seconds**. Use the synthetic files in `samples/` only. 
 
 **Say:**
 
-> The repository includes 67 passing automated tests, PostgreSQL smoke evidence, genuine screenshots, a demo script, and explicit limitations. The remaining demo deliverable is recording this walkthrough.
+> The repository includes 99 passing automated tests, PostgreSQL smoke evidence, genuine screenshots, a demo script, and explicit limitations. The remaining demo deliverable is recording this walkthrough.
 
 ## Cleanup after recording
 

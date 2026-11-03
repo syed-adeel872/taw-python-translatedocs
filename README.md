@@ -176,6 +176,8 @@ Important settings from `.env.example`:
 
 `openai` uses the official OpenAI API and `OPENAI_API_KEY`. The generic `openai_compatible` adapter remains available for Groq, OpenRouter, Ollama, or another `/chat/completions` endpoint; its aliases are `openai_compatible`, `groq`, `openrouter`, and `ollama`.
 
+> **Breaking configuration change:** Before the multi-provider change, `AI_PROVIDER=openai` selected the generic OpenAI-compatible adapter. It now selects the official OpenAI SDK provider and requires `OPENAI_API_KEY`. Existing generic configurations must switch to `AI_PROVIDER=openai_compatible` and set `OPENAI_COMPAT_BASE_URL` and `OPENAI_COMPAT_MODEL`; set `OPENAI_COMPAT_API_KEY` only if that endpoint requires authentication.
+
 ## Database setup
 
 PostgreSQL is the intended database. Create a PostgreSQL database and user through your local PostgreSQL installation, hosting provider, or managed database console, then set `DATABASE_URL` in `.env` to a URL using the `postgresql+psycopg://` driver. For Neon, use the direct (non-pooler) hostname for migrations and keep `sslmode=require`.
@@ -301,7 +303,7 @@ The mock provider does not call a network service. It prefixes text with the tar
 
 ### Switching providers
 
-Change only `AI_PROVIDER` and the matching key/model values. No application code change is required:
+Change `AI_PROVIDER` and the matching key/model values. No application code change is required. For `openai_compatible`, also set `OPENAI_COMPAT_BASE_URL`; its model is `OPENAI_COMPAT_MODEL`, and its key is optional.
 
 ```dotenv
 AI_PROVIDER=mock          # or gemini, openai, anthropic, openai_compatible

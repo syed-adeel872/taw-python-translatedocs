@@ -152,7 +152,7 @@ It does not preserve images, vector graphics, tables, multi-column layouts, exac
 - `AnthropicTranslationProvider` — official `anthropic` SDK, Messages API.
 - `OpenAICompatibleTranslationProvider` — generic HTTP `/chat/completions` client for Groq, OpenRouter, Ollama, or similar endpoints.
 
-All adapters implement the same `translate(texts, source_language, target_language)` contract and use the shared prompt, batch ordering, and JSON response parser. Provider SDK retries are disabled (`max_retries=0`) so the application's bounded `TranslationService` retry policy remains the single retry layer.
+All adapters implement the same `translate(texts, source_language, target_language)` contract and use the shared prompt, batch ordering, and JSON response parser. SDK retries are disabled where supported so the application's bounded `TranslationService` retry policy remains the single retry layer. OpenAI and Anthropic use `max_retries=0`. Gemini uses `HttpRetryOptions(attempts=1)` when supported by the installed `google-genai` version; if that option is unavailable, the Gemini client falls back to `HttpOptions(timeout=...)` without an explicit retry override, so that compatibility path may retain SDK-default retry behavior.
 
 Missing credentials return an `UnavailableProvider` that raises a descriptive configuration error when a job runs. A selected real provider never falls back silently to mock. Authentication failures, rate limits, timeouts, malformed responses, and API errors are mapped to safe application errors without logging API keys or document content.
 
