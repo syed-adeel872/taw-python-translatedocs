@@ -29,14 +29,16 @@ _FONT_CANDIDATES = [
 ]
 
 
-def resolve_pdf_font(settings: Settings, translated_text: str) -> str | None:
-    """Return a font file path that covers the needed characters.
+def _load_font(path: Path) -> fitz.Font | None:
+    """Return a usable PyMuPDF font for ``path``, or ``None`` if it cannot load."""
+    try:
+        return fitz.Font(fontfile=str(path))
+    except Exception:
+        return None
 
-    Returns ``None`` when the text is pure ASCII, in which case PyMuPDF's
-    built-in Helvetica can be used.
-    """
-    required = {character for character in translated_text if ord(character) > 127}
 
+def _candidate_paths(settings: Settings) -> list[Path]:
+    """Return the ordered list of font paths to inspect."""
     candidates: list[Path] = []
     if settings.pdf_font_path:
         configured = Path(settings.pdf_font_path)
@@ -44,14 +46,36 @@ def resolve_pdf_font(settings: Settings, translated_text: str) -> str | None:
             configured = (Path.cwd() / configured).resolve()
         candidates.append(configured)
     candidates.extend(Path(path) for path in _FONT_CANDIDATES)
+    return candidates
+
+
+def resolve_pdf_font(settings: Settings, translated_text: str) -> str | None:
+    """Return a font file path that covers the needed characters.
+
+    Returns ``None`` when the text is pure ASCII, in which case PyMuPDF's
+    built-in Helvetica can be used.
+
+    Raises ``DocumentProcessingError`` when the text contains non-ASCII
+    characters and no available font can render every one of them.
+    """
+    required = {character for character in translated_text if ord(character) > 127}
+
+    candidates = _candidate_paths(settings)
+    configured_path = candidates[0] if settings.pdf_font_path else None
 
     fallback: str | None = None
+    configured_failed = False
+
     for candidate in candidates:
         if not candidate.is_file():
+            if candidate == configured_path:
+                configured_failed = True
             continue
-        try:
-            font = fitz.Font(fontfile=str(candidate))
-        except Exception:
+
+        font = _load_font(candidate)
+        if font is None:
+            if candidate == configured_path:
+                configured_failed = True
             continue
 
         if fallback is None:
@@ -66,7 +90,13 @@ def resolve_pdf_font(settings: Settings, translated_text: str) -> str | None:
     if not required:
         return fallback
 
+    hint = ""
+    if configured_path is not None and configured_failed:
+        hint = (
+            " The configured PDF_FONT_PATH could not be used; install a Unicode "
+            "TrueType font and set PDF_FONT_PATH to its path."
+        )
     raise DocumentProcessingError(
-        "The translated PDF contains characters that no available font can render. "
-        "Install a Unicode font and set PDF_FONT_PATH in .env."
+        "The translated PDF contains characters that no available font can render."
+        f"{hint}"
     )

@@ -62,7 +62,7 @@ Target length: **60–90 seconds**. Use the synthetic files in `samples/` only. 
 
 **Say:**
 
-> The completed job exposes a download URL and the translated output filename. The smoke verification for this sample processed 19 segments and preserved the heading style, tables, headers, footers, and four bold runs.
+> The completed job exposes a download URL and the translated output filename. The smoke verification for this sample processed 19 segments and preserved the heading style, tables, headers, footers, and bold formatting across body paragraphs and table cells.
 
 ### 0:30–0:55 — PDF translation
 
@@ -98,7 +98,7 @@ Target length: **60–90 seconds**. Use the synthetic files in `samples/` only. 
 
 **Say:**
 
-> The repository includes 99 passing automated tests, PostgreSQL smoke evidence, genuine screenshots, a demo script, and explicit limitations. The remaining demo deliverable is recording this walkthrough.
+> The repository includes 112 passing and 2 skipped automated tests, PostgreSQL smoke evidence, genuine screenshots, a demo script, and explicit limitations. The remaining demo deliverable is recording this walkthrough.
 
 ## Cleanup after recording
 

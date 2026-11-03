@@ -272,7 +272,7 @@ Test limitations:
 - There is no browser-based end-to-end test.
 - There is no load, concurrency, restart-recovery, zip-bomb, or output-retention test.
 
-The latest local run in this workspace reported **99 passed** on Python 3.13.5. Re-run the commands above to confirm the current count.
+The latest local run in this workspace reported **112 passed, 2 skipped** on Python 3.13.5. Re-run the commands above to confirm the current count.
 
 ## Synthetic sample documents
 
@@ -377,12 +377,12 @@ The DOCX processor:
 
 - Preserves document structure, headings, paragraphs, tables, and headers/footers where supported by `python-docx`.
 - Translates body, table, header, and footer paragraph text.
-- Attempts to preserve bold, italic, colour, and font formatting by redistributing translated text across the original runs.
+- Preserves run-level formatting properties (bold, italic, colour, font) on each run, but redistributes the translated paragraph text across the original runs in proportion to their source lengths.
 - Leaves images, charts, text boxes, footnotes, comments, and tracked changes in the file, but does not translate their text.
 - May shift complex layouts and line breaks inside paragraphs.
 - May not translate every Word structure, including some hyperlink or content-control text.
 
-Formatting preservation is approximate, not pixel-perfect. Review translated documents before sharing.
+Formatting preservation is approximate, not pixel-perfect. Run-level formatting properties are preserved, but the translated text is not guaranteed to stay inside the run that originally contained the corresponding source words: a translation shorter than the source can leave an originally formatted run empty, so the translated text may no longer appear with its original formatting. Review translated documents before sharing.
 
 ## PDF formatting limitations
 
@@ -394,7 +394,7 @@ The PDF processor:
 - Does **not** preserve images, vector graphics, tables, multi-column layouts, exact fonts, or original text positions.
 - Does **not** support scanned PDFs without a text layer because OCR is not included.
 - Attempts right alignment for Arabic, Urdu, Persian, and Hebrew, but RTL shaping and visual output have not been verified.
-- Uses a configured or auto-detected Unicode font for non-Latin text; missing font coverage can cause translation failure.
+- Uses a configured or auto-detected Unicode font for non-Latin text; missing font coverage raises a clear processing error rather than silently producing blank output. A configured `PDF_FONT_PATH` that is missing or unloadable is skipped with a hint in the error message. Do not claim that any font or script is supported; coverage depends on fonts installed on the host machine.
 
 If preserving the original PDF layout is required, this application does not currently meet that requirement.
 

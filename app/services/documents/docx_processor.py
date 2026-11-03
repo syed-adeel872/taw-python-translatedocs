@@ -24,6 +24,10 @@ logger = logging.getLogger(__name__)
 DOCX_WARNINGS = [
     "DOCX structure, headings, tables and basic run formatting (bold, italic, "
     "colour, font) are preserved.",
+    "Run-level formatting properties survive translation, but the translated "
+    "text is redistributed proportionally across the original runs. A "
+    "shorter translation can leave an originally formatted run empty, so the "
+    "translated text may no longer appear with its original formatting.",
     "Images, charts, text boxes, footnotes, comments and tracked changes are kept "
     "in the file but their text is not translated.",
     "Complex layouts and line breaks inside a paragraph may shift slightly.",
