@@ -33,7 +33,7 @@ class GeminiTranslationProvider(TranslationProvider):
 
         self._genai = genai
         self._types = types
-        self.model = model or "gemini-2.5-flash"
+        self.model = model or "gemini-3.6-flash"
 
         try:
             http_options = types.HttpOptions(
@@ -55,7 +55,6 @@ class GeminiTranslationProvider(TranslationProvider):
 
         try:
             config = self._types.GenerateContentConfig(
-                temperature=0.2,
                 response_mime_type="application/json",
             )
         except Exception:

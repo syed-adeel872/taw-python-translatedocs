@@ -110,6 +110,14 @@ def test_gemini_error_classification():
         _classify_gemini_error(FakeError("API key not valid", 400)),
         ProviderConfigurationError,
     )
+    assert isinstance(
+        _classify_gemini_error(FakeError("permission denied", 403)),
+        ProviderConfigurationError,
+    )
+    assert isinstance(
+        _classify_gemini_error(FakeError("model not found", 404)),
+        ProviderConfigurationError,
+    )
     assert "timeout" not in _classify_gemini_error(FakeError("deadline exceeded")).user_message.lower()
     assert _classify_gemini_error(FakeError("unknown")).__class__.__name__ == "TranslationError"
 

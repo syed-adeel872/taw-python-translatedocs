@@ -137,6 +137,18 @@ def test_provider_models_are_configurable_through_settings():
     assert gemini_provider.model == "custom-gemini-model"
 
 
+def test_gemini_default_model_is_gemini_3_6_flash():
+    settings = Settings(
+        _env_file=None,
+        ai_provider="gemini",
+        gemini_api_key="fake-gemini-key",
+    )
+    provider = build_translation_provider(settings)
+
+    assert settings.gemini_model == "gemini-3.6-flash"
+    assert provider.model == "gemini-3.6-flash"
+
+
 def test_missing_openai_key_is_a_configuration_error_not_a_mock_fallback():
     provider = build_translation_provider(
         Settings(_env_file=None, ai_provider="openai", openai_api_key="")
@@ -199,6 +211,31 @@ def test_gemini_translates_in_segment_order():
 
     provider = _gemini_provider(handler)
     assert provider.translate(["one", "two"], "en", "de") == ["eins", "zwei"]
+
+
+def test_gemini_requests_json_without_deprecated_sampling_parameters():
+    def handler(**kwargs):
+        config = kwargs["config"]
+        assert config.response_mime_type == "application/json"
+        assert config.temperature is None
+        assert config.top_p is None
+        assert config.top_k is None
+        return SimpleNamespace(text='{"translations": ["eins"]}')
+
+    provider = _gemini_provider(handler)
+    assert provider.translate(["one"], "en", "de") == ["eins"]
+
+
+def test_gemini_model_not_found_is_safe_and_does_not_reveal_the_key():
+    def handler(**kwargs):
+        raise FakeGeminiError("model not found", code=404)
+
+    provider = _gemini_provider(handler)
+
+    with pytest.raises(ProviderConfigurationError) as exc_info:
+        provider.translate(["one"], "en", "de")
+    assert "GEMINI_MODEL" in exc_info.value.user_message
+    assert "fake-gemini-key" not in exc_info.value.user_message
 
 
 @pytest.mark.parametrize("content", [None, "", "not json"])

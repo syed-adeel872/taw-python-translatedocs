@@ -147,7 +147,7 @@ It does not preserve images, vector graphics, tables, multi-column layouts, exac
 `app/services/translation/factory.py` selects:
 
 - `MockTranslationProvider` — deterministic, no network, default.
-- `GeminiTranslationProvider` — official `google-genai` SDK.
+- `GeminiTranslationProvider` — official `google-genai` SDK; defaults to `gemini-3.6-flash`.
 - `OpenAITranslationProvider` — official `openai` SDK, Chat Completions API.
 - `AnthropicTranslationProvider` — official `anthropic` SDK, Messages API.
 - `OpenAICompatibleTranslationProvider` — generic HTTP `/chat/completions` client for Groq, OpenRouter, Ollama, or similar endpoints.

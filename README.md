@@ -160,7 +160,7 @@ Important settings from `.env.example`:
 | `MAX_UPLOAD_MB` | Maximum upload size | Defaults to `10`; validated between 1 and 100. |
 | `AI_PROVIDER` | Provider selection | `mock`, `gemini`, `openai`, `anthropic`, or `openai_compatible`. |
 | `GEMINI_API_KEY` | Gemini credential | Required for `gemini`; never commit it. |
-| `GEMINI_MODEL` | Gemini model name | Defaults to `gemini-2.5-flash`. Confirm availability in your account. |
+| `GEMINI_MODEL` | Gemini model name | Defaults to `gemini-3.6-flash`. Confirm availability in your account. |
 | `OPENAI_API_KEY` | OpenAI credential | Required for `openai`; never commit it. |
 | `OPENAI_MODEL` | OpenAI model name | Defaults to `gpt-4o-mini`. Confirm availability in your account. |
 | `ANTHROPIC_API_KEY` | Anthropic credential | Required for `anthropic`; never commit it. |
@@ -318,8 +318,10 @@ Configure:
 ```dotenv
 AI_PROVIDER=gemini
 GEMINI_API_KEY=your-key-here
-GEMINI_MODEL=gemini-2.5-flash
+GEMINI_MODEL=gemini-3.6-flash
 ```
+
+The default Gemini model is `gemini-3.6-flash`; Google also documents `gemini-3.5-flash-lite` as a lighter alternative. Confirm model availability for your account before switching. Gemini 3.6 deprecates the `temperature`, `top_p`, and `top_k` sampling parameters, so this provider does not set them.
 
 Uses the official `google-genai` SDK. Do not commit the key. Gemini request handling and error classification are covered by mocked tests, but a live Gemini call has **not been verified** by repository evidence.
 
