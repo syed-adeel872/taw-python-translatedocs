@@ -13,7 +13,10 @@ from app.errors import (
 )
 from app.services.translation.base import TranslationProvider
 from app.services.translation.parsing import parse_translation_payload
-from app.services.translation.prompts import build_batch_prompt
+from app.services.translation.prompts import (
+    TRANSLATION_SYSTEM_PROMPT,
+    build_batch_prompt,
+)
 
 
 class OpenAICompatibleTranslationProvider(TranslationProvider):
@@ -51,13 +54,7 @@ class OpenAICompatibleTranslationProvider(TranslationProvider):
             "model": self.model,
             "temperature": 0.2,
             "messages": [
-                {
-                    "role": "system",
-                    "content": (
-                        "You are a translation engine. Reply with JSON only. "
-                        "Never add commentary."
-                    ),
-                },
+                {"role": "system", "content": TRANSLATION_SYSTEM_PROMPT},
                 {"role": "user", "content": prompt},
             ],
         }

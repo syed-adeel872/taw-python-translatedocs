@@ -36,7 +36,14 @@ class GeminiTranslationProvider(TranslationProvider):
         self.model = model or "gemini-2.5-flash"
 
         try:
+            http_options = types.HttpOptions(
+                timeout=int(timeout_seconds * 1000),
+                retryOptions=types.HttpRetryOptions(attempts=1),
+            )
+        except Exception:
             http_options = types.HttpOptions(timeout=int(timeout_seconds * 1000))
+
+        try:
             self._client = genai.Client(api_key=api_key, http_options=http_options)
         except Exception:
             self._client = genai.Client(api_key=api_key)
@@ -90,6 +97,7 @@ def _classify_gemini_error(exc: Exception) -> TranslationError:
     if (
         code in (500, 502, 503, 504)
         or "timeout" in message
+        or "timed out" in message
         or "deadline" in message
         or "temporarily unavailable" in message
         or "overloaded" in message
