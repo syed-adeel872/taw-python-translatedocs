@@ -2,9 +2,9 @@
 
 TranslateDocs is a Python and FastAPI application for translating DOCX and PDF export documents while preserving as much readable structure as practical. It is intended for exporters, small trade teams, and evaluation users who need a simple upload-to-download translation workflow rather than a full document-management system.
 
-The application supports a deterministic mock provider for development and a provider interface for Gemini and OpenAI-compatible endpoints. The current default is mock mode; it does not produce real translations.
+The application supports a deterministic mock provider for development plus three interchangeable real LLM providers: Google Gemini, OpenAI, and Anthropic Claude. A separate generic OpenAI-compatible adapter remains available for other endpoints. The current default is mock mode; it does not produce real translations.
 
-> **Project status:** Early-stage evaluation project. The mock DOCX/PDF workflow is covered by automated tests and was verified against the configured Neon PostgreSQL database. Live Gemini and OpenAI-compatible provider calls are **not verified**. The application is **not ready for public deployment** because authentication, rate limiting, output retention, and other abuse controls are not implemented.
+> **Project status:** Early-stage evaluation project. The mock DOCX/PDF workflow is covered by automated tests and was verified against the configured Neon PostgreSQL database. The Gemini, OpenAI, and Anthropic adapters are covered by mocked SDK tests only; none of them has been live-tested with real credentials in this repository. The application is **not ready for public deployment** because authentication, rate limiting, output retention, and other abuse controls are not implemented.
 
 ## Features
 
@@ -15,7 +15,7 @@ The application supports a deterministic mock provider for development and a pro
 - Poll job status and download completed output from the same job page.
 - Translate DOCX paragraphs, tables, headers, and footers with approximate run-formatting preservation.
 - Rebuild PDFs as readable text PDFs while preserving page sizes where practical.
-- Switch between a deterministic mock provider, Gemini, and OpenAI-compatible endpoints.
+- Switch between mock, Gemini, OpenAI, Anthropic Claude, and OpenAI-compatible endpoints by changing environment configuration only.
 - Batch translation requests with bounded retries and response validation.
 - Generate synthetic DOCX and PDF samples for testing and demos.
 - Run automated tests with isolated temporary SQLite databases.
@@ -32,7 +32,7 @@ The application supports a deterministic mock provider for development and a pro
 | Test database | SQLite in isolated temporary directories |
 | DOCX processing | `python-docx` |
 | PDF processing | PyMuPDF (`pymupdf` / `fitz`) |
-| AI providers | Mock, Google Gemini through `google-genai`, OpenAI-compatible HTTP endpoints through `httpx` |
+| AI providers | Mock, Google Gemini through `google-genai`, OpenAI through `openai`, Anthropic Claude through `anthropic`, and generic OpenAI-compatible HTTP endpoints through `httpx` |
 | Testing | `pytest` and FastAPI `TestClient` |
 | Frontend | Server-rendered HTML, CSS, and vanilla JavaScript polling |
 
@@ -56,7 +56,9 @@ flowchart LR
     TS --> P{"Provider"}
     P --> MOCK["Mock"]
     P --> GEM["Gemini"]
-    P --> OAI["OpenAI-compatible"]
+    P --> OAI["OpenAI"]
+    P --> CLAUDE["Anthropic Claude"]
+    P --> COMPAT["OpenAI-compatible"]
     DOCX --> OUT[("Local outputs<br/>instance/outputs")]
     PDF --> OUT
     U -->|"Poll status"| STATUS["GET /api/jobs/{job_id}"]
@@ -99,7 +101,8 @@ screenshots/                    Genuine local application screenshots
 - Python and `pip`.
 - A PostgreSQL database for the intended application configuration.
 - No API key is required for mock mode.
-- A free or local OpenAI-compatible endpoint can be used instead of Gemini if configured.
+- A real provider requires the matching API key and a model available to that account.
+- A free or local OpenAI-compatible endpoint can be used through the separate `openai_compatible` adapter.
 - No dependency installation or database migration is performed automatically by the application.
 
 ## Installation
@@ -155,19 +158,23 @@ Important settings from `.env.example`:
 | `DATABASE_ECHO` | SQLAlchemy echo logging | Use only for local debugging. |
 | `STORAGE_ROOT` | Upload/output root | Defaults to `instance`. Relative paths resolve inside the project. |
 | `MAX_UPLOAD_MB` | Maximum upload size | Defaults to `10`; validated between 1 and 100. |
-| `AI_PROVIDER` | Provider selection | `mock`, `gemini`, or `openai_compatible`. |
-| `GEMINI_API_KEY` | Gemini credential | Leave blank for mock mode; never commit it. |
-| `GEMINI_MODEL` | Gemini model name | Defaults to `gemini-2.5-flash`. |
-| `OPENAI_COMPAT_API_KEY` | Optional endpoint credential | Use only if the endpoint requires it. |
+| `AI_PROVIDER` | Provider selection | `mock`, `gemini`, `openai`, `anthropic`, or `openai_compatible`. |
+| `GEMINI_API_KEY` | Gemini credential | Required for `gemini`; never commit it. |
+| `GEMINI_MODEL` | Gemini model name | Defaults to `gemini-2.5-flash`. Confirm availability in your account. |
+| `OPENAI_API_KEY` | OpenAI credential | Required for `openai`; never commit it. |
+| `OPENAI_MODEL` | OpenAI model name | Defaults to `gpt-4o-mini`. Confirm availability in your account. |
+| `ANTHROPIC_API_KEY` | Anthropic credential | Required for `anthropic`; never commit it. |
+| `ANTHROPIC_MODEL` | Anthropic model name | Defaults to `claude-sonnet-4-5`. Confirm availability in your account. |
+| `OPENAI_COMPAT_API_KEY` | Optional endpoint credential | Use only if the generic endpoint requires it. |
 | `OPENAI_COMPAT_BASE_URL` | OpenAI-compatible base URL | Required for `openai_compatible`. |
 | `OPENAI_COMPAT_MODEL` | OpenAI-compatible model name | Required for `openai_compatible`. |
 | `AI_TIMEOUT_SECONDS` | Provider request timeout | Defaults to `60`. |
-| `AI_MAX_RETRIES` | Retry count for transient/rate-limit errors | Defaults to `2`. |
+| `AI_MAX_RETRIES` | Retry count for transient/rate-limit errors | Defaults to `3`. |
 | `AI_BATCH_SIZE` | Segments per provider request | Defaults to `20`. |
 | `MAX_DOCUMENT_CHARS` | Maximum source characters per document | Defaults to `400000`. |
 | `PDF_FONT_PATH` | Optional Unicode TrueType font | Used when rebuilding PDF output. |
 
-The provider factory also accepts the aliases `openai`, `groq`, `openrouter`, and `ollama`, although `.env.example` documents only `openai_compatible`.
+`openai` uses the official OpenAI API and `OPENAI_API_KEY`. The generic `openai_compatible` adapter remains available for Groq, OpenRouter, Ollama, or another `/chat/completions` endpoint; its aliases are `openai_compatible`, `groq`, `openrouter`, and `ollama`.
 
 ## Database setup
 
@@ -251,18 +258,19 @@ What the tests cover:
 - DOCX and PDF mock-mode upload-to-download flows.
 - Upload validation, language validation, and filename sanitization.
 - Provider retries, malformed responses, batching, and parsing.
+- Gemini, OpenAI, and Anthropic request handling, authentication errors, rate limits, timeouts, malformed responses, and retry boundaries with mocked SDK clients.
 - OpenAI-compatible HTTP behavior with a fake client.
-- Gemini error classification.
+- Mock provider backward compatibility.
 - Alembic migration success and schema startup failures.
 
 Test limitations:
 
 - Tests use SQLite, not PostgreSQL.
-- Tests use the mock provider; live Gemini and OpenAI-compatible calls are not tested.
+- Tests use mocked SDK/HTTP responses for Gemini, OpenAI, Anthropic, and OpenAI-compatible providers. No live AI provider call is made or verified.
 - There is no browser-based end-to-end test.
 - There is no load, concurrency, restart-recovery, zip-bomb, or output-retention test.
 
-The latest local run in this workspace reported **67 passed, 1 warning** (a Starlette/httpx deprecation warning).
+The latest local run in this workspace reported **99 passed in 44.42s** on Python 3.13.5. Re-run the commands above to confirm the current count.
 
 ## Synthetic sample documents
 
@@ -291,6 +299,16 @@ AI_PROVIDER=mock
 
 The mock provider does not call a network service. It prefixes text with the target language code, for example `[es] Commercial Invoice`. The UI displays a development-mode warning while mock mode is active. Mock output is not a real translation and should not be presented as one.
 
+### Switching providers
+
+Change only `AI_PROVIDER` and the matching key/model values. No application code change is required:
+
+```dotenv
+AI_PROVIDER=mock          # or gemini, openai, anthropic, openai_compatible
+```
+
+If the selected provider's key is missing, the application reports a configuration error and does **not** silently fall back to mock.
+
 ### Gemini
 
 Configure:
@@ -301,7 +319,31 @@ GEMINI_API_KEY=your-key-here
 GEMINI_MODEL=gemini-2.5-flash
 ```
 
-Do not commit the key. Gemini integration is implemented, but a live Gemini call has **not been verified** by repository evidence.
+Uses the official `google-genai` SDK. Do not commit the key. Gemini request handling and error classification are covered by mocked tests, but a live Gemini call has **not been verified** by repository evidence.
+
+### OpenAI
+
+Configure:
+
+```dotenv
+AI_PROVIDER=openai
+OPENAI_API_KEY=your-key-here
+OPENAI_MODEL=gpt-4o-mini
+```
+
+Uses the official `openai` SDK and the Chat Completions API. Do not commit the key. The default model is an example; confirm model access and pricing in your OpenAI account. OpenAI request handling and error classification are covered by mocked SDK tests, but a live OpenAI call has **not been verified** by repository evidence.
+
+### Anthropic Claude
+
+Configure:
+
+```dotenv
+AI_PROVIDER=anthropic
+ANTHROPIC_API_KEY=your-key-here
+ANTHROPIC_MODEL=claude-sonnet-4-5
+```
+
+Uses the official `anthropic` SDK and the Messages API. Do not commit the key. The adapter sends the shared translation prompt as a user message with a JSON-only system instruction and requests at most 8,192 output tokens. This limits very large batches; reduce `AI_BATCH_SIZE` if needed. Anthropic request handling and error classification are covered by mocked SDK tests, but a live Anthropic call has **not been verified** by repository evidence.
 
 ### OpenAI-compatible endpoints
 
@@ -314,9 +356,16 @@ OPENAI_COMPAT_MODEL=your-model
 OPENAI_COMPAT_API_KEY=optional-key
 ```
 
-The implementation posts to `{OPENAI_COMPAT_BASE_URL}/chat/completions`. This can be used with Groq, OpenRouter, a local Ollama server, or another compatible endpoint. The endpoint may be free or paid; verify its terms and availability yourself.
+The implementation posts to `{OPENAI_COMPAT_BASE_URL}/chat/completions`. This can be used with Groq, OpenRouter, a local Ollama server, or another compatible endpoint. The endpoint may be free or paid; verify its terms and availability yourself. This adapter is separate from the official OpenAI provider.
 
 No live OpenAI-compatible provider call has been verified by repository evidence. Automated tests use a fake HTTP client.
+
+### Credential handling
+
+- Keep all keys in `.env` locally or inject them through the hosting environment.
+- `.env` is Git-ignored; never commit it or paste keys into source, tests, logs, screenshots, or issues.
+- Use synthetic documents while evaluating real providers; extracted text is sent to the selected third party.
+- Model names and availability change over time. The documented defaults are examples, not a guarantee of access.
 
 ## DOCX formatting limitations
 
@@ -381,6 +430,7 @@ Privacy behavior:
 - Source uploads are deleted after processing completes or fails. An upload saved just before a database failure can remain in `instance/uploads`.
 - Translated outputs remain in `instance/outputs` until manually removed.
 - When a real provider is configured, extracted document text is sent to that third-party provider. Do not process confidential documents without reviewing the provider's terms, data handling, and retention policy.
+- Document text is untrusted input. A malicious document may contain prompt-injection instructions; output still passes through the same segment-count and type validation, but translation quality or content can be manipulated.
 - Job IDs are effectively access tokens; treat job URLs as sensitive.
 
 Use synthetic samples or non-sensitive documents for evaluation.
@@ -389,7 +439,8 @@ Use synthetic samples or non-sensitive documents for evaluation.
 
 - The DOCX and PDF mock workflows are implemented, covered by automated tests, and were verified end-to-end against Neon PostgreSQL on 2026-11-02.
 - PostgreSQL migration `0001`, schema readiness, startup, `/health`, and the synthetic DOCX/PDF smoke workflow are verified.
-- Live Gemini and OpenAI-compatible provider calls are **not verified**.
+- Gemini, OpenAI, Anthropic, and OpenAI-compatible request handling is covered by mocked tests; **no live real-provider call is verified**.
+- Provider switching requires only `AI_PROVIDER`, the matching API key, and the configured model; missing keys fail explicitly rather than falling back to mock.
 - The automated suite uses isolated SQLite databases; there is no automated PostgreSQL integration job.
 - Genuine screenshots are available in `screenshots/`.
 - No demo video is recorded; the recording script is available at [docs/demo-script.md](docs/demo-script.md).

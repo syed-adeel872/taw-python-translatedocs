@@ -1,6 +1,6 @@
 # Architecture
 
-This document describes the current TranslateDocs implementation. PostgreSQL migration `0001`, the startup schema gate, local health, and a synthetic DOCX/PDF mock workflow were verified against Neon on 2026-11-02. Live Gemini and OpenAI-compatible provider calls remain unverified.
+This document describes the current TranslateDocs implementation. PostgreSQL migration `0001`, the startup schema gate, local health, and a synthetic DOCX/PDF mock workflow were verified against Neon on 2026-11-02. Gemini, OpenAI, Anthropic, and OpenAI-compatible adapters are covered by mocked tests; no live real-provider call is verified.
 
 ## System overview
 
@@ -32,6 +32,8 @@ flowchart TB
     subgraph Providers["Translation providers"]
         MOCK["Mock"]
         GEMINI["Gemini"]
+        OPENAI["OpenAI"]
+        CLAUDE["Anthropic Claude"]
         COMPAT["OpenAI-compatible"]
     end
 
@@ -52,6 +54,8 @@ flowchart TB
     FACTORY -->|"supplies selected provider at startup"| TRANSLATE
     FACTORY --> MOCK
     FACTORY --> GEMINI
+    FACTORY --> OPENAI
+    FACTORY --> CLAUDE
     FACTORY --> COMPAT
     DOCX --> OUTPUTS
     PDF --> OUTPUTS
@@ -143,10 +147,16 @@ It does not preserve images, vector graphics, tables, multi-column layouts, exac
 `app/services/translation/factory.py` selects:
 
 - `MockTranslationProvider` — deterministic, no network, default.
-- `GeminiTranslationProvider` — Google GenAI SDK.
-- `OpenAICompatibleTranslationProvider` — HTTP `/chat/completions` client.
+- `GeminiTranslationProvider` — official `google-genai` SDK.
+- `OpenAITranslationProvider` — official `openai` SDK, Chat Completions API.
+- `AnthropicTranslationProvider` — official `anthropic` SDK, Messages API.
+- `OpenAICompatibleTranslationProvider` — generic HTTP `/chat/completions` client for Groq, OpenRouter, Ollama, or similar endpoints.
 
-Mock mode is clearly identified in the UI and is the only provider path covered by end-to-end tests. Gemini error classification is unit-tested. OpenAI-compatible request handling is tested with a fake HTTP client. No live provider call is verified in the repository.
+All adapters implement the same `translate(texts, source_language, target_language)` contract and use the shared prompt, batch ordering, and JSON response parser. Provider SDK retries are disabled (`max_retries=0`) so the application's bounded `TranslationService` retry policy remains the single retry layer.
+
+Missing credentials return an `UnavailableProvider` that raises a descriptive configuration error when a job runs. A selected real provider never falls back silently to mock. Authentication failures, rate limits, timeouts, malformed responses, and API errors are mapped to safe application errors without logging API keys or document content.
+
+Mock mode is clearly identified in the UI and is the only provider path covered by end-to-end tests. Gemini, OpenAI, Anthropic, and OpenAI-compatible request behavior is tested with mocked SDK/HTTP clients. No live real-provider call is verified in the repository.
 
 ### Database and schema gate
 
@@ -229,8 +239,11 @@ Do not expose the application publicly without first adding:
 | PostgreSQL connection, revision `0001`, schema gate, startup health | Verified manually on Neon, 2026-11-02 |
 | PostgreSQL synthetic DOCX/PDF mock workflow | Verified manually on Neon; smoke rows and files cleaned up |
 | Automated PostgreSQL test job | Not present; automated tests use SQLite |
-| Live Gemini call | Not verified |
-| Live OpenAI-compatible call | Not verified |
+| Mock provider backward compatibility | Verified by automated tests |
+| Gemini request/error handling with mocked SDK | Verified by automated tests; live call not verified |
+| OpenAI request/error handling with mocked SDK | Verified by automated tests; live call not verified |
+| Anthropic request/error handling with mocked SDK | Verified by automated tests; live call not verified |
+| OpenAI-compatible request handling with fake HTTP client | Verified by automated tests; live call not verified |
 | Browser screenshots | Captured from the local app on 2026-11-02; interactive flow is not automated |
 | Demo video | Not recorded; script available in `docs/demo-script.md` |
 | Public deployment | Not available and not recommended in current state |
