@@ -13,6 +13,13 @@ class PdfFailingProvider(TranslationProvider):
         raise RuntimeError("provider exploded")
 
 
+class TooLongProvider(TranslationProvider):
+    name = "pdf-too-long"
+
+    def translate(self, texts, source_language, target_language):
+        return ["This translated sentence is deliberately far too long." * 20 for _ in texts]
+
+
 def test_pdf_upload_preserves_page_sizes_and_downloads(client, settings):
     source = make_pdf_bytes()
     response = upload(client, source, filename="invoice.pdf", target="fr")
@@ -49,6 +56,21 @@ def test_pdf_upload_preserves_page_sizes_and_downloads(client, settings):
     finally:
         output.close()
 
+    assert list((settings.storage_root / "uploads").iterdir()) == []
+
+
+def test_pdf_overflow_fails_job_and_removes_partial_output(client, app, settings):
+    app.state.runner.translator = TranslationService(
+        TooLongProvider(), max_retries=0, retry_backoff=0
+    )
+    response = upload(client, make_pdf_bytes(), filename="overflow.pdf")
+    assert response.status_code == 303
+    job_id = response.headers["location"].rsplit("/", 1)[-1]
+
+    payload = client.get(f"/api/jobs/{job_id}").json()
+    assert payload["status"] == "failed"
+    assert "does not fit" in payload["error_message"].lower()
+    assert list((settings.storage_root / "outputs").iterdir()) == []
     assert list((settings.storage_root / "uploads").iterdir()) == []
 
 

@@ -1,6 +1,6 @@
 # Architecture
 
-This document describes the current TranslateDocs implementation. PostgreSQL migration `0001`, the startup schema gate, local health, and a synthetic DOCX/PDF mock workflow were verified against Neon on 2026-11-02. Gemini, OpenAI, Anthropic, and OpenAI-compatible adapters are covered by mocked tests; no live real-provider call is verified.
+This document describes the current TranslateDocs implementation. PostgreSQL migration `0001`, the startup schema gate, local health, and a synthetic DOCX/PDF mock workflow were previously verified against Neon. A manual Gemini smoke test previously completed successfully; OpenAI, Anthropic, and OpenAI-compatible adapters remain covered by mocked tests. No live provider call is part of the automated suite.
 
 ## System overview
 
@@ -120,17 +120,23 @@ Because the runner is in-process, a restart can leave jobs stuck in `queued` or 
 
 `DocxProcessor.process` uses `python-docx`.
 
-It collects translatable paragraphs from the document body, tables, nested tables, headers, and footers. Paragraph text is translated as one segment per paragraph, then redistributed across the original runs in proportion to source text length. This preserves headings, tables, headers/footers, and approximate run formatting such as bold, italic, colour, and font.
+It collects translatable paragraphs from the document body, tables, nested tables, headers, and footers. Paragraphs with multiple formatted runs are translated as one segment containing stable run markers, then each translated piece is mapped back to the original run. If a provider drops, duplicates, reorders, or damages the markers, the paragraph is retranslated segment by segment and a warning is recorded. Text is never redistributed proportionally. This preserves headings, tables, headers/footers, and run formatting such as bold, italic, colour, and font.
 
-It does not translate text inside images, charts, text boxes, footnotes, comments, or tracked changes. Complex layouts and line breaks may shift.
+It keeps inline images, charts, text boxes, hyperlinks, footnotes, comments, and tracked changes in the file, but does not translate text inside those objects. Objects that share a run with translated text are preserved, but their position may shift. Complex layouts and line breaks may shift.
 
 ### PDF processing
 
 `PdfProcessor.process` uses PyMuPDF.
 
-It extracts text blocks with `page.get_text("dict", sort=True)`, translates block text, and rebuilds a new text-based PDF. It preserves page sizes and basic page flow where practical, adding continuation pages when translated content does not fit.
+It extracts text blocks with `page.get_text("dict", sort=True)`, clones the source document, removes original text with PyMuPDF redactions, and overlays translations into the original block rectangles. Redactions use `PDF_REDACT_IMAGE_NONE`, `PDF_REDACT_LINE_ART_NONE`, and `PDF_REDACT_TEXT_REMOVE` so images and vector graphics are preserved. The saved PDF is reopened and validated for page count, page dimensions, source-text removal, and exact translated text.
 
-It does not preserve images, vector graphics, tables, multi-column layouts, exact fonts, or original text positions. Scanned PDFs without a text layer are rejected because OCR is not implemented. RTL targets use right alignment, but shaping and visual output have not been verified.
+The processor accepts solid vector fills that fully cover a block and rejects raster images, partially covering fills, translucent fills, malformed drawings, and uncertain backgrounds. It also rejects overlapping redaction areas and translations that cannot fit without truncation. Normal text may shrink to 80% of its measured size with an 8pt floor; text already below 8pt keeps its original size. Text colour keeps the original colour only when every original span meets WCAG contrast, otherwise black or white is used only when it meets the threshold. The processor fails closed rather than rebuilding the PDF.
+
+Scanned PDFs without a text layer are rejected because OCR is not implemented. Text baked into raster image pixels cannot be removed or translated. RTL targets use right alignment, but shaping and visual output have **not** been verified and are not claimed as supported.
+
+### Known PDF validation limitation (PyMuPDF ToUnicode CMap)
+
+Strict PDF validation re-extracts the rendered text from the saved PDF and compares it character-for-character (after normalization) to the translation. For LTR text this works reliably. For non-Latin/RTL text on the tested Windows host, PyMuPDF extraction from the embedded font subset returns substituted base forms, so the comparison fails even when the text was rendered. In that case the job fails safely with a processing error; no partial or incorrect output is accepted. This is a toolchain limitation, not a disabled check, and non-Latin/RTL PDF translation is not claimed as supported.
 
 ### Provider abstraction
 
@@ -156,7 +162,7 @@ All adapters implement the same `translate(texts, source_language, target_langua
 
 Missing credentials return an `UnavailableProvider` that raises a descriptive configuration error when a job runs. A selected real provider never falls back silently to mock. Authentication failures, rate limits, timeouts, malformed responses, and API errors are mapped to safe application errors without logging API keys or document content.
 
-Mock mode is clearly identified in the UI and is the only provider path covered by end-to-end tests. Gemini, OpenAI, Anthropic, and OpenAI-compatible request behavior is tested with mocked SDK/HTTP clients. No live real-provider call is verified in the repository.
+Mock mode is clearly identified in the UI and is the only provider path covered by end-to-end tests. Gemini, OpenAI, Anthropic, and OpenAI-compatible request behavior is tested with mocked SDK/HTTP clients. The automated suite makes no live provider calls; a manual Gemini smoke previously succeeded, while OpenAI, Anthropic, and OpenAI-compatible are not live-verified.
 
 ### Database and schema gate
 

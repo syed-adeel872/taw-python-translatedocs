@@ -1,15 +1,117 @@
-from __future__ import annotations
-
+import io
+import zipfile
 from uuid import uuid4
 
 from app.models import Job, JobStatus, utcnow
-from app.services.documents.validation import sanitize_filename
+from app.services.documents.validation import (
+    MAX_DOCX_COMPRESSION_RATIO,
+    MAX_DOCX_ENTRIES,
+    MAX_DOCX_ENTRY_UNCOMPRESSED_BYTES,
+    MAX_DOCX_UNCOMPRESSED_BYTES,
+    sanitize_filename,
+)
 from tests.helpers import (
     make_blank_pdf_bytes,
     make_docx_bytes,
     make_pdf_bytes,
     upload,
 )
+
+
+def _make_zip(entries: list[tuple[str, bytes]], *, compress: bool = True) -> bytes:
+    buffer = io.BytesIO()
+    mode = zipfile.ZIP_DEFLATED if compress else zipfile.ZIP_STORED
+    with zipfile.ZipFile(buffer, "w", mode) as archive:
+        for name, data in entries:
+            archive.writestr(name, data)
+    return buffer.getvalue()
+
+
+def _docx_shell(entries: list[tuple[str, bytes]]) -> list[tuple[str, bytes]]:
+    base = [("[Content_Types].xml", b"<Types/>"), ("word/document.xml", b"<doc/>")]
+    return base + entries
+
+
+def test_docx_zip_too_many_entries_is_rejected(client):
+    entries = [(f"word/extra{i}.xml", b"x") for i in range(MAX_DOCX_ENTRIES + 5)]
+    data = _make_zip(_docx_shell(entries))
+    response = upload(client, data, filename="bomb.docx")
+    assert response.status_code == 400
+    assert "too many parts" in response.text.lower()
+
+
+def test_docx_zip_oversized_entry_is_rejected(client):
+    big = b"x" * (MAX_DOCX_ENTRY_UNCOMPRESSED_BYTES + 1024)
+    data = _make_zip(_docx_shell([("word/big.bin", big)]))
+    response = upload(client, data, filename="big.docx")
+    assert response.status_code == 400
+    assert "oversized part" in response.text.lower()
+
+
+def test_docx_zip_excessive_total_uncompressed_is_rejected(client):
+    # Several entries each under the per-entry cap but whose combined
+    # uncompressed size exceeds the total cap. Data is moderately compressible
+    # so the compression-ratio check does not fire first.
+    pattern = (b"abcdefghij" * 10)  # 100 bytes
+    chunk = pattern * (20 * 1024 * 1024 // len(pattern))
+    entries = [("word/c0.bin", chunk), ("word/c1.bin", chunk), ("word/c2.bin", chunk)]
+    data = _make_zip(_docx_shell(entries))
+    response = upload(client, data, filename="total.docx")
+    assert response.status_code == 400
+    assert "too large when decompressed" in response.text.lower()
+
+
+def test_docx_zip_suspicious_compression_ratio_is_rejected(client):
+    # Highly compressible data in one entry creates an extreme ratio.
+    big = b"\x00" * (2 * 1024 * 1024)
+    data = _make_zip(_docx_shell([("word/huge.bin", big)]))
+    response = upload(client, data, filename="ratio.docx")
+    assert response.status_code == 400
+    assert "suspicious compression ratio" in response.text.lower()
+
+
+def _make_encrypted_like_zip() -> bytes:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("[Content_Types].xml", b"<Types/>")
+        archive.writestr("word/document.xml", b"<doc/>")
+    data = bytearray(buffer.getvalue())
+    i = 0
+    while True:
+        idx = data.find(b"PK\x03\x04", i)
+        if idx < 0:
+            break
+        data[idx + 6] |= 0x01
+        i = idx + 4
+    i = 0
+    while True:
+        idx = data.find(b"PK\x01\x02", i)
+        if idx < 0:
+            break
+        data[idx + 8] |= 0x01
+        i = idx + 4
+    return bytes(data)
+
+
+def test_encrypted_docx_is_rejected(client):
+    data = _make_encrypted_like_zip()
+    response = upload(client, data, filename="enc.docx")
+    assert response.status_code == 400
+    assert "encrypted" in response.text.lower()
+
+
+def test_corrupt_docx_zip_is_rejected(client):
+    data = bytearray(make_docx_bytes())
+    # Flip a byte in the middle to corrupt compressed data.
+    data[len(data) // 2] ^= 0xFF
+    response = upload(client, bytes(data), filename="corrupt.docx")
+    assert response.status_code == 400
+
+
+def test_truncated_docx_zip_is_rejected(client):
+    data = make_docx_bytes()[:50]
+    response = upload(client, data, filename="trunc.docx")
+    assert response.status_code == 400
 
 
 def test_unsupported_extension_is_rejected(client):

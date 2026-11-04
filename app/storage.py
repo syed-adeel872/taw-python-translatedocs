@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from uuid import uuid4
 
 from app.errors import DocumentProcessingError
+
+logger = logging.getLogger(__name__)
 
 
 class Storage:
@@ -23,6 +26,21 @@ class Storage:
         path = self.uploads / name
         path.write_bytes(data)
         return path, name
+
+    def delete_upload(self, name: str) -> None:
+        """Remove a previously saved upload, ignoring missing files.
+
+        Filesystem failures are logged but never replace the original error that
+        triggered cleanup.
+        """
+        try:
+            path = self._resolve(self.uploads, name)
+        except DocumentProcessingError:
+            return
+        try:
+            path.unlink(missing_ok=True)
+        except OSError:
+            logger.warning("Could not remove uploaded file at %s", path)
 
     def new_output(self, extension: str) -> tuple[Path, str]:
         name = f"{uuid4().hex}{extension}"

@@ -68,8 +68,8 @@ def test_valid_docx_upload_translates_and_downloads(client, app, settings):
     assert payload["download_url"] == f"/jobs/{job_id}/download"
     assert payload["warnings"]
     assert any(
-        "redistributed proportionally" in warning
-        and "formatted run empty" in warning
+        "stable segment markers" in warning
+        and "never redistributed proportionally" in warning
         for warning in payload["warnings"]
     ), payload["warnings"]
 

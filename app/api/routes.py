@@ -81,9 +81,13 @@ async def create_translation(
             updated_at=utcnow(),
         )
 
-        with request.app.state.database.session() as session:
-            session.add(job)
-            session.commit()
+        try:
+            with request.app.state.database.session() as session:
+                session.add(job)
+                session.commit()
+        except Exception:
+            storage.delete_upload(storage_name)
+            raise
 
         background_tasks.add_task(request.app.state.runner.run, job.id)
         return RedirectResponse(url=f"/jobs/{job.id}", status_code=303)

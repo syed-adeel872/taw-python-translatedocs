@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import zipfile
+import zlib
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
@@ -72,21 +73,120 @@ def validate_upload(raw_name: str | None, data: bytes, max_bytes: int) -> Valida
     )
 
 
+# Safe limits for DOCX (ZIP) uploads. These are checked from ZIP metadata only;
+# the archive is never fully extracted during validation.
+# Safe limits for DOCX (ZIP) uploads. Declared ZIP metadata is not trusted on its
+# own; entries are also read in bounded chunks and their actual decompressed size
+# is counted. The archive is never fully extracted into memory.
+MAX_DOCX_ENTRIES = 1000
+MAX_DOCX_UNCOMPRESSED_BYTES = 50 * 1024 * 1024  # 50 MB total
+MAX_DOCX_ENTRY_UNCOMPRESSED_BYTES = 25 * 1024 * 1024  # 25 MB per entry
+MAX_DOCX_COMPRESSION_RATIO = 200
+MIN_DOCX_COMPRESSED_BYTES_FOR_RATIO_CHECK = 1024
+_DOCX_CHUNK_SIZE = 64 * 1024
+
+
 def _validate_docx(data: bytes) -> None:
     try:
-        with zipfile.ZipFile(BytesIO(data)) as archive:
-            names = set(archive.namelist())
-            if archive.testzip() is not None:
-                raise CorruptedDocumentError()
-    except zipfile.BadZipFile as exc:
+        archive = zipfile.ZipFile(BytesIO(data))
+    except (zipfile.BadZipFile, OSError, EOFError, RuntimeError) as exc:
         raise CorruptedDocumentError(
             "The DOCX file is corrupted or is not a real Word document."
         ) from exc
 
+    try:
+        infos = archive.infolist()
+    except (OSError, RuntimeError, zipfile.LargeZipFile) as exc:
+        archive.close()
+        raise CorruptedDocumentError(
+            "The DOCX file is corrupted or is not a real Word document."
+        ) from exc
+
+    if len(infos) > MAX_DOCX_ENTRIES:
+        archive.close()
+        raise InvalidUploadError(
+            "The DOCX file contains too many parts and cannot be processed."
+        )
+
+    names = {info.filename for info in infos}
     if "[Content_Types].xml" not in names or "word/document.xml" not in names:
+        archive.close()
         raise InvalidUploadError(
             "The file does not look like a Word document. Upload a .docx file."
         )
+
+    total_uncompressed = 0
+    for info in infos:
+        if info.flag_bits & 0x1:
+            archive.close()
+            raise InvalidUploadError(
+                "Encrypted DOCX files are not supported."
+            )
+
+        if info.file_size > MAX_DOCX_ENTRY_UNCOMPRESSED_BYTES:
+            archive.close()
+            raise InvalidUploadError(
+                "The DOCX file contains an oversized part and cannot be processed."
+            )
+
+        total_uncompressed += info.file_size
+        if total_uncompressed > MAX_DOCX_UNCOMPRESSED_BYTES:
+            archive.close()
+            raise InvalidUploadError(
+                "The DOCX file is too large when decompressed and cannot be "
+                "processed."
+            )
+
+    for info in infos:
+        if (
+            info.compress_size >= MIN_DOCX_COMPRESSED_BYTES_FOR_RATIO_CHECK
+            and info.file_size > 0
+        ):
+            ratio = info.file_size / max(1, info.compress_size)
+            if ratio > MAX_DOCX_COMPRESSION_RATIO:
+                archive.close()
+                raise InvalidUploadError(
+                    "The DOCX file has a suspicious compression ratio and cannot "
+                    "be processed."
+                )
+
+    # Count actual decompressed bytes by reading each entry in bounded chunks.
+    actual_total = 0
+    for info in infos:
+        if info.is_dir():
+            continue
+        try:
+            with archive.open(info, "r") as member:
+                entry_bytes = 0
+                while True:
+                    chunk = member.read(_DOCX_CHUNK_SIZE)
+                    if not chunk:
+                        break
+                    entry_bytes += len(chunk)
+                    actual_total += len(chunk)
+                    if entry_bytes > MAX_DOCX_ENTRY_UNCOMPRESSED_BYTES:
+                        raise InvalidUploadError(
+                            "The DOCX file contains an oversized part and cannot "
+                            "be processed."
+                        )
+                    if actual_total > MAX_DOCX_UNCOMPRESSED_BYTES:
+                        raise InvalidUploadError(
+                            "The DOCX file is too large when decompressed and "
+                            "cannot be processed."
+                        )
+        except (OSError, RuntimeError, EOFError, zipfile.BadZipFile, zlib.error) as exc:
+            archive.close()
+            raise CorruptedDocumentError(
+                "The DOCX file is corrupted or is not a real Word document."
+            ) from exc
+        except InvalidUploadError:
+            archive.close()
+            raise
+
+    # archive.open() above already decompressed each entry and validated its CRC,
+    # so no additional unbounded testzip() pass is required.
+
+    archive.close()
 
 
 def _validate_pdf(data: bytes) -> None:

@@ -93,12 +93,17 @@ def test_configured_font_with_full_coverage_is_preferred(monkeypatch, tmp_path):
     assert result == str(real)
 
 
-def test_relative_pdf_font_path_is_resolved(monkeypatch, tmp_path):
-    """A relative PDF_FONT_PATH is resolved against the current working dir."""
+def test_relative_pdf_font_path_is_resolved_against_project_root(monkeypatch, tmp_path):
+    """A relative PDF_FONT_PATH resolves against the project root, not cwd."""
     real = Path(r"C:\Windows\Fonts\arialuni.ttf")
     if not real.is_file():
         pytest.skip("Windows Arial Unicode font not available on this machine")
-    monkeypatch.chdir(tmp_path)
-    settings = _settings(pdf_font_path=str(real.name))
+    import app.services.documents.fonts as fonts_module
+
+    target = tmp_path / "relative-font.ttf"
+    target.write_bytes(real.read_bytes())
+    monkeypatch.setattr(fonts_module, "PROJECT_ROOT", tmp_path)
+    monkeypatch.chdir(tmp_path.parent)  # run from a different working directory
+    settings = _settings(pdf_font_path="relative-font.ttf")
     result = resolve_pdf_font(settings, "café")
-    assert result == str(real.resolve())
+    assert result == str(target.resolve())

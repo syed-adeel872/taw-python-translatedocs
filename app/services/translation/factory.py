@@ -80,10 +80,11 @@ def build_translation_provider(settings: Settings) -> TranslationProvider:
             model=settings.openai_compat_model,
             api_key=settings.openai_compat_api_key,
             timeout_seconds=settings.ai_timeout_seconds,
+            name=provider,
         )
 
     return UnavailableProvider(
         provider,
         f"Unknown AI_PROVIDER '{provider}'. Use mock, gemini, openai, "
-        "anthropic, or openai_compatible.",
+        "anthropic, openai_compatible, groq, openrouter, or ollama.",
     )

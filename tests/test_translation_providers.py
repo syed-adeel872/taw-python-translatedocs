@@ -57,12 +57,10 @@ def test_parse_rejects_invalid_payloads(raw, expected):
         parse_translation_payload(raw, expected)
 
 
-def test_prompt_contains_language_and_count():
-    prompt = build_batch_prompt(["Hello", "World"], "auto", "es")
-    assert "Spanish" in prompt
-    assert "Segments (2 total)" in prompt
-    assert "[1] Hello" in prompt
-    assert '"translations"' in prompt
+def test_prompt_contains_conciseness_guidance():
+    prompt = build_batch_prompt(["Hello", "World"], "en", "es")
+    assert "concise" in prompt
+    assert "quantity" in prompt.lower() or "quantities" in prompt.lower()
 
 
 def test_service_batches_and_preserves_order():

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pymupdf as fitz
 
-from app.config import Settings
+from app.config import PROJECT_ROOT, Settings
 from app.errors import DocumentProcessingError
 
 _FONT_CANDIDATES = [
@@ -43,7 +43,9 @@ def _candidate_paths(settings: Settings) -> list[Path]:
     if settings.pdf_font_path:
         configured = Path(settings.pdf_font_path)
         if not configured.is_absolute():
-            configured = (Path.cwd() / configured).resolve()
+            configured = (PROJECT_ROOT / configured).resolve()
+        else:
+            configured = configured.expanduser().resolve()
         candidates.append(configured)
     candidates.extend(Path(path) for path in _FONT_CANDIDATES)
     return candidates

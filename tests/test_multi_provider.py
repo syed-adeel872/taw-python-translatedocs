@@ -204,6 +204,17 @@ def test_anthropic_translates_in_segment_order():
     assert provider.translate(["one", "two"], "en", "fr") == ["un", "deux"]
 
 
+def test_openai_compatible_provider_reports_selected_alias():
+    settings = Settings(
+        _env_file=None,
+        ai_provider="groq",
+        openai_compat_base_url="https://api.groq.com/openai/v1",
+        openai_compat_model="llama-3.1-8b-instant",
+    )
+    provider = build_translation_provider(settings)
+    assert provider.name == "groq"
+
+
 def test_gemini_translates_in_segment_order():
     def handler(**kwargs):
         assert kwargs["model"] == "test-model"
@@ -220,6 +231,43 @@ def test_gemini_requests_json_without_deprecated_sampling_parameters():
         assert config.temperature is None
         assert config.top_p is None
         assert config.top_k is None
+        return SimpleNamespace(text='{"translations": ["eins"]}')
+
+    provider = _gemini_provider(handler)
+    assert provider.translate(["one"], "en", "de") == ["eins"]
+
+
+def test_gemini_fallback_config_preserves_system_prompt():
+    calls = {"count": 0}
+
+    class FakeConfig:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+            self.response_mime_type = kwargs.get("response_mime_type")
+            self.system_instruction = kwargs.get("system_instruction")
+            self.temperature = None
+            self.top_p = None
+            self.top_k = None
+
+    def fake_generate_content_config(**kwargs):
+        calls["count"] += 1
+        if "system_instruction" in kwargs:
+            raise TypeError("unsupported")
+        config = FakeConfig(**kwargs)
+        # Simulate the fallback path setting the attribute.
+        try:
+            setattr(config, "system_instruction", TRANSLATION_SYSTEM_PROMPT)
+        except Exception:
+            pass
+        return config
+
+    provider = _gemini_provider(lambda **kwargs: SimpleNamespace(text='{"translations": ["eins"]}'))
+    provider._types.GenerateContentConfig = fake_generate_content_config
+    assert provider.translate(["one"], "en", "de") == ["eins"]
+    assert calls["count"] == 2
+    def handler(**kwargs):
+        config = kwargs["config"]
+        assert "translation engine" in (config.system_instruction or "").lower()
         return SimpleNamespace(text='{"translations": ["eins"]}')
 
     provider = _gemini_provider(handler)
