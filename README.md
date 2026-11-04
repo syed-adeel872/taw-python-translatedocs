@@ -424,7 +424,7 @@ Current limitations:
 - Background jobs are in-process and are lost or left incomplete if the process restarts.
 - No output retention or expiry policy.
 - No automatic cleanup of an upload orphaned by a database failure before job creation.
-- No decompression or zip-bomb limit for DOCX archives.
+- DOCX archives are checked for entry count, per-entry and total uncompressed size, compression ratio, and encrypted entries, with bounded chunked reads; ZIP central-directory metadata is still trusted for initial checks.
 - No malware or document-content scanning.
 - No OCR.
 - `HOST`/`PORT` do not configure TLS or a reverse proxy.
