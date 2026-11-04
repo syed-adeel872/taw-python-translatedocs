@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import re
+
 from app.services.translation.base import TranslationProvider
+
+_MARKER_OPEN = re.compile(r"(\[\[\[R\d+\]\]\])")
 
 
 class MockTranslationProvider(TranslationProvider):
@@ -18,4 +22,14 @@ class MockTranslationProvider(TranslationProvider):
     def translate(
         self, texts: list[str], source_language: str, target_language: str
     ) -> list[str]:
-        return [f"[{target_language}] {text}" for text in texts]
+        results: list[str] = []
+        for text in texts:
+            if "[[[R" in text:
+                results.append(
+                    _MARKER_OPEN.sub(
+                        rf"\1[{target_language}] ", text, count=1
+                    )
+                )
+            else:
+                results.append(f"[{target_language}] {text}")
+        return results

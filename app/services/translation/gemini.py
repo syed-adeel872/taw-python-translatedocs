@@ -11,7 +11,10 @@ from app.errors import (
 )
 from app.services.translation.base import TranslationProvider
 from app.services.translation.parsing import parse_translation_payload
-from app.services.translation.prompts import build_batch_prompt
+from app.services.translation.prompts import (
+    TRANSLATION_SYSTEM_PROMPT,
+    build_batch_prompt,
+)
 
 
 class GeminiTranslationProvider(TranslationProvider):
@@ -33,7 +36,7 @@ class GeminiTranslationProvider(TranslationProvider):
 
         self._genai = genai
         self._types = types
-        self.model = model or "gemini-2.5-flash"
+        self.model = model or "gemini-3.6-flash"
 
         try:
             http_options = types.HttpOptions(
@@ -55,11 +58,22 @@ class GeminiTranslationProvider(TranslationProvider):
 
         try:
             config = self._types.GenerateContentConfig(
-                temperature=0.2,
                 response_mime_type="application/json",
+                system_instruction=TRANSLATION_SYSTEM_PROMPT,
             )
         except Exception:
-            config = None
+            try:
+                config = self._types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                )
+                # Preserve the shared instructions even when the SDK's config
+                # constructor does not accept system_instruction directly.
+                try:
+                    setattr(config, "system_instruction", TRANSLATION_SYSTEM_PROMPT)
+                except Exception:
+                    pass
+            except Exception:
+                config = None
 
         try:
             response = self._client.models.generate_content(

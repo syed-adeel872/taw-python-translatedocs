@@ -12,7 +12,7 @@ Target length: **60–90 seconds**. Use the synthetic files in `samples/` only. 
 
 2. Open `http://127.0.0.1:8000` in a browser.
 3. Keep `samples/sample_export_invoice.docx` and `samples/sample_packing_list.pdf` ready.
-4. Confirm the provider is `mock`; do not describe the output as a live AI translation.
+4. Confirm the provider is `mock`; do not describe the output as a live AI translation. Do not demonstrate non-Latin/RTL PDF translation; it is not verified and fails safely.
 
 ## Recording checklist
 
@@ -62,7 +62,7 @@ Target length: **60–90 seconds**. Use the synthetic files in `samples/` only. 
 
 **Say:**
 
-> The completed job exposes a download URL and the translated output filename. The smoke verification for this sample processed 19 segments and preserved the heading style, tables, headers, footers, and four bold runs.
+> The completed job exposes a download URL and the translated output filename. The smoke verification for this sample processed 19 segments and preserved the heading style, tables, headers, footers, and bold formatting across body paragraphs and table cells.
 
 ### 0:30–0:55 — PDF translation
 
@@ -76,13 +76,13 @@ Target length: **60–90 seconds**. Use the synthetic files in `samples/` only. 
 
 **Say:**
 
-> PDFs use a text-extraction and reconstruction path. This keeps the translated content readable and downloadable, but it does not preserve the original page layout, graphics, or exact typography.
+> PDFs use an in-place redaction and overlay path. The original page count, page sizes, images, vector graphics, and detected solid backgrounds are preserved where safe. Text over raster images or uncertain backgrounds is rejected instead of rebuilding the page.
 
 **Show:** The completed job page and output filename `sample_packing_list-fr.pdf`. Download and open the PDF to show translated text on both pages.
 
 **Say:**
 
-> The verified smoke run produced a valid two-page PDF with translated text on both pages.
+> The offline test suite verifies the two-page PDF path, including redaction, source-text removal, and preserved page dimensions. Text baked into raster image pixels is not removed or translated.
 
 ### 0:55–1:15 — Architecture and limitations
 
@@ -90,7 +90,7 @@ Target length: **60–90 seconds**. Use the synthetic files in `samples/` only. 
 
 **Say:**
 
-> Jobs are persisted in PostgreSQL, schema readiness is checked at startup, and downloads are served only for completed jobs. Uploads are deleted after processing; outputs remain until cleaned up.
+> Jobs are persisted in the configured database (PostgreSQL in the verified setup; SQLite in the automated tests), schema readiness is checked at startup, and downloads are served only for completed jobs. Uploads are deleted after processing; outputs remain until cleaned up.
 
 > This is not production-ready. It has no authentication, rate limiting, CSRF protection, or output retention policy, so it should not be exposed publicly in its current form.
 
@@ -98,8 +98,12 @@ Target length: **60–90 seconds**. Use the synthetic files in `samples/` only. 
 
 **Say:**
 
-> The repository includes 99 passing automated tests, PostgreSQL smoke evidence, genuine screenshots, a demo script, and explicit limitations. The remaining demo deliverable is recording this walkthrough.
+> The repository includes 203 passing and 2 skipped automated tests, genuine screenshots, a demo script, and explicit limitations. The remaining demo deliverable is recording this walkthrough.
 
-## Cleanup after recording
+## After recording (Loom)
 
-Record the exact job IDs and output filenames created during the demo. Afterward, remove only those rows and generated files. Do not truncate tables or delete unrelated data.
+1. Record the walkthrough with Loom (or an equivalent screen recorder) using the flow above. Keep `.env`, terminals, database URLs, job tokens, and private documents off screen.
+2. Upload the recording to Loom and copy the share URL.
+3. Paste the share URL into `README.md` in the "Demo video" section, replacing the placeholder `https://www.loom.com/share/<recorded-demo-id>`.
+4. Record the job IDs and output filenames created during the demo, then remove only those rows and generated files. Do not truncate tables or delete unrelated data.
+5. Do not claim a deployment or public URL; the demo remains a local recorded demonstration unless an employer authorizes otherwise.

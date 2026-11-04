@@ -28,15 +28,19 @@ class OpenAICompatibleTranslationProvider(TranslationProvider):
         model: str,
         api_key: str = "",
         timeout_seconds: float = 60.0,
+        name: str = "openai_compatible",
     ) -> None:
         if not base_url:
             raise ProviderConfigurationError(
-                "OPENAI_COMPAT_BASE_URL is not set for the openai_compatible provider."
+                "OPENAI_COMPAT_BASE_URL is not set for the "
+                f"{self.name} provider."
             )
         if not model:
             raise ProviderConfigurationError(
-                "OPENAI_COMPAT_MODEL is not set for the openai_compatible provider."
+                "OPENAI_COMPAT_MODEL is not set for the "
+                f"{self.name} provider."
             )
+        self.name = name or "openai_compatible"
         self.base_url = base_url.rstrip("/")
         self.model = model
         self.api_key = api_key

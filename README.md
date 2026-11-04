@@ -4,17 +4,17 @@ TranslateDocs is a Python and FastAPI application for translating DOCX and PDF e
 
 The application supports a deterministic mock provider for development plus three interchangeable real LLM providers: Google Gemini, OpenAI, and Anthropic Claude. A separate generic OpenAI-compatible adapter remains available for other endpoints. The current default is mock mode; it does not produce real translations.
 
-> **Project status:** Early-stage evaluation project. The mock DOCX/PDF workflow is covered by automated tests and was verified against the configured Neon PostgreSQL database. The Gemini, OpenAI, and Anthropic adapters are covered by mocked SDK tests only; none of them has been live-tested with real credentials in this repository. The application is **not ready for public deployment** because authentication, rate limiting, output retention, and other abuse controls are not implemented.
+> **Project status:** Early-stage evaluation project. The mock DOCX/PDF workflow is covered by automated offline tests. A manual Gemini smoke test was previously reported as successful, but no repository evidence confirms it; OpenAI and Anthropic remain covered by mocked SDK tests only. No live provider call is part of the automated suite. The application is **not ready for public deployment** because authentication, rate limiting, output retention, and other abuse controls are not implemented.
 
 ## Features
 
 - Upload DOCX and PDF documents through a browser form.
 - Select a source language or auto-detect, and choose a target language.
-- Validate file extension, size, structure, and password protection; reject scanned PDFs without a text layer during processing.
+- Validate file extension, size, and structure; reject password-protected PDFs and scanned PDFs without a text layer during processing.
 - Process documents through FastAPI background tasks.
 - Poll job status and download completed output from the same job page.
-- Translate DOCX paragraphs, tables, headers, and footers with approximate run-formatting preservation.
-- Rebuild PDFs as readable text PDFs while preserving page sizes where practical.
+- Translate DOCX paragraphs, tables, headers, and footers with run-level formatting association.
+- Translate PDFs in place with redaction and overlay, preserving page count, page sizes, images, vector graphics, and detected solid backgrounds where safe.
 - Switch between mock, Gemini, OpenAI, Anthropic Claude, and OpenAI-compatible endpoints by changing environment configuration only.
 - Batch translation requests with bounded retries and response validation.
 - Generate synthetic DOCX and PDF samples for testing and demos.
@@ -160,7 +160,7 @@ Important settings from `.env.example`:
 | `MAX_UPLOAD_MB` | Maximum upload size | Defaults to `10`; validated between 1 and 100. |
 | `AI_PROVIDER` | Provider selection | `mock`, `gemini`, `openai`, `anthropic`, or `openai_compatible`. |
 | `GEMINI_API_KEY` | Gemini credential | Required for `gemini`; never commit it. |
-| `GEMINI_MODEL` | Gemini model name | Defaults to `gemini-2.5-flash`. Confirm availability in your account. |
+| `GEMINI_MODEL` | Gemini model name | Defaults to `gemini-3.6-flash`. Confirm availability in your account. |
 | `OPENAI_API_KEY` | OpenAI credential | Required for `openai`; never commit it. |
 | `OPENAI_MODEL` | OpenAI model name | Defaults to `gpt-4o-mini`. Confirm availability in your account. |
 | `ANTHROPIC_API_KEY` | Anthropic credential | Required for `anthropic`; never commit it. |
@@ -172,7 +172,7 @@ Important settings from `.env.example`:
 | `AI_MAX_RETRIES` | Retry count for transient/rate-limit errors | Defaults to `3`. |
 | `AI_BATCH_SIZE` | Segments per provider request | Defaults to `20`. |
 | `MAX_DOCUMENT_CHARS` | Maximum source characters per document | Defaults to `400000`. |
-| `PDF_FONT_PATH` | Optional Unicode TrueType font | Used when rebuilding PDF output. |
+| `PDF_FONT_PATH` | Optional Unicode TrueType font | Embedded for PDF text overlay when needed. |
 
 `openai` uses the official OpenAI API and `OPENAI_API_KEY`. The generic `openai_compatible` adapter remains available for Groq, OpenRouter, Ollama, or another `/chat/completions` endpoint; its aliases are `openai_compatible`, `groq`, `openrouter`, and `ollama`.
 
@@ -202,6 +202,8 @@ Important behavior:
 - The initial migration is `0001_create_jobs.py`.
 - If a local database already contains a `jobs` table without `alembic_version`, do not stamp it blindly. Back it up and reconcile it manually.
 - The test suite uses isolated temporary SQLite databases and does not require PostgreSQL.
+
+A reproducible manual PostgreSQL verification checklist is available at [docs/postgres-manual-test-checklist.md](docs/postgres-manual-test-checklist.md).
 
 PostgreSQL runtime verification was completed on **2026-11-02** against the configured Neon direct endpoint:
 
@@ -258,6 +260,8 @@ What the tests cover:
 
 - FastAPI health and page rendering.
 - DOCX and PDF mock-mode upload-to-download flows.
+- DOCX marker mapping, formatting association, and segment-by-segment fallback.
+- PDF redaction/overlay, source-text removal, background preservation, contrast selection, raster/uncertain-background rejection, overflow failure, and partial-output cleanup.
 - Upload validation, language validation, and filename sanitization.
 - Provider retries, malformed responses, batching, and parsing.
 - Gemini, OpenAI, and Anthropic request handling, authentication errors, rate limits, timeouts, malformed responses, and retry boundaries with mocked SDK clients.
@@ -268,11 +272,11 @@ What the tests cover:
 Test limitations:
 
 - Tests use SQLite, not PostgreSQL.
-- Tests use mocked SDK/HTTP responses for Gemini, OpenAI, Anthropic, and OpenAI-compatible providers. No live AI provider call is made or verified.
+- The automated suite uses mocked SDK/HTTP responses and makes no live AI provider call. A manual Gemini smoke was previously reported as successful; OpenAI, Anthropic, and OpenAI-compatible remain unverified live. No repository evidence confirms the Gemini smoke.
 - There is no browser-based end-to-end test.
 - There is no load, concurrency, restart-recovery, zip-bomb, or output-retention test.
 
-The latest local run in this workspace reported **99 passed** on Python 3.13.5. Re-run the commands above to confirm the current count.
+The latest local run in this workspace reported **223 passed, 2 skipped** on Python 3.13.5. Re-run the commands above to confirm the current count.
 
 ## Synthetic sample documents
 
@@ -299,7 +303,7 @@ Default configuration:
 AI_PROVIDER=mock
 ```
 
-The mock provider does not call a network service. It prefixes text with the target language code, for example `[es] Commercial Invoice`. The UI displays a development-mode warning while mock mode is active. Mock output is not a real translation and should not be presented as one.
+The mock provider does not call a network service. It prefixes text with the target language code, for example `[es] Commercial Invoice`. In paragraphs with multiple formatted runs it prefixes only the first run's marker and leaves the remaining runs unchanged, so mock output is not a uniform translation. The UI displays a development-mode warning while mock mode is active. Mock output is not a real translation and should not be presented as one.
 
 ### Switching providers
 
@@ -318,8 +322,10 @@ Configure:
 ```dotenv
 AI_PROVIDER=gemini
 GEMINI_API_KEY=your-key-here
-GEMINI_MODEL=gemini-2.5-flash
+GEMINI_MODEL=gemini-3.6-flash
 ```
+
+The default Gemini model is `gemini-3.6-flash`; Google also documents `gemini-3.5-flash-lite` as a lighter alternative. Confirm model availability for your account before switching. Gemini 3.6 deprecates the `temperature`, `top_p`, and `top_k` sampling parameters, so this provider does not set them.
 
 Uses the official `google-genai` SDK. Do not commit the key. Gemini request handling and error classification are covered by mocked tests, but a live Gemini call has **not been verified** by repository evidence.
 
@@ -375,26 +381,35 @@ The DOCX processor:
 
 - Preserves document structure, headings, paragraphs, tables, and headers/footers where supported by `python-docx`.
 - Translates body, table, header, and footer paragraph text.
-- Attempts to preserve bold, italic, colour, and font formatting by redistributing translated text across the original runs.
-- Leaves images, charts, text boxes, footnotes, comments, and tracked changes in the file, but does not translate their text.
+- Preserves run-level formatting (bold, italic, colour, font) by wrapping formatted runs in stable markers and mapping each translated piece back to the same run.
+- Falls back to segment-by-segment translation when a provider drops or damages the markers, and records a warning. It never silently redistributes text proportionally.
+- Keeps inline images, charts, text boxes, hyperlinks, footnotes, comments, and tracked changes in the file, but does not translate text inside those objects. Objects that share a run with translated text are preserved, but their position may shift.
 - May shift complex layouts and line breaks inside paragraphs.
 - May not translate every Word structure, including some hyperlink or content-control text.
 
-Formatting preservation is approximate, not pixel-perfect. Review translated documents before sharing.
+Formatting preservation is approximate, not pixel-perfect. Marker mapping keeps translated text attached to the original run in normal cases, but provider output can still change spacing or punctuation. Review translated documents before sharing.
 
 ## PDF formatting limitations
 
 The PDF processor:
 
-- Extracts text blocks and rebuilds a text-based PDF.
-- Preserves page sizes and basic page flow where practical.
-- Creates continuation pages when translated content does not fit.
-- Does **not** preserve images, vector graphics, tables, multi-column layouts, exact fonts, or original text positions.
+- Clones the source PDF, removes original text with PyMuPDF redactions, and overlays translations into the original text rectangles.
+- Preserves page count, page sizes, raster images, vector graphics, tables, and solid vector backgrounds where they can be identified safely.
+- Rejects text over raster images, partially covering fills, translucent fills, malformed drawings, and uncertain backgrounds instead of rebuilding the page.
+- Rejects overlapping text blocks and translated text that cannot fit without truncation.
+- Shrinks text only down to 80% of the measured size with an 8pt floor for normal-size text; text already below 8pt keeps its original size. Overflow fails the job rather than clipping.
+- Chooses a text colour with adequate WCAG contrast against the detected background. The original colour is kept when it passes; otherwise black or white is used only when it passes.
 - Does **not** support scanned PDFs without a text layer because OCR is not included.
-- Attempts right alignment for Arabic, Urdu, Persian, and Hebrew, but RTL shaping and visual output have not been verified.
-- Uses a configured or auto-detected Unicode font for non-Latin text; missing font coverage can cause translation failure.
+- Does **not** remove text baked into raster image pixels; such text is outside the redaction path and is not translated.
+- Attempts right alignment for Arabic, Urdu, Persian, and Hebrew, but RTL shaping, glyph substitution, and visual output have **not** been verified and are not claimed as supported.
+- Non-Latin/RTL PDF translation is currently **not** verified end-to-end. Strict post-render validation compares extracted text to the translation; PyMuPDF extraction from the embedded font subsets used on Windows hosts has been observed to return substituted base forms for Urdu/Arabic, so these jobs fail safely with a processing error rather than silently accepting mismatched text. Do not represent Urdu/Arabic PDF translation as working.
+- Uses a configured or auto-detected Unicode font for non-Latin text; missing font coverage raises a clear processing error rather than silently producing blank output. A configured `PDF_FONT_PATH` that is missing or unloadable is skipped with a hint in the error message. Do not claim that any font or script is supported; coverage depends on fonts installed on the host machine.
 
-If preserving the original PDF layout is required, this application does not currently meet that requirement.
+The processor fails closed when safe in-place redaction or overlay is not possible. It does not rebuild the PDF as a fallback.
+
+### Known PDF validation limitation (PyMuPDF ToUnicode CMap)
+
+Strict PDF validation re-extracts the rendered text from the saved PDF and compares it character-for-character (after normalization) to the translation. For LTR text this works reliably. For non-Latin/RTL text on the tested Windows host, PyMuPDF extraction from the embedded font subset returns substituted base forms, so the comparison fails even when the text was rendered. In that case the job fails safely with a processing error; no partial or incorrect output is accepted. This is a toolchain limitation, not a disabled check. See [docs/architecture.md](docs/architecture.md) for details.
 
 ## Security, privacy, and third-party AI processing
 
@@ -417,7 +432,7 @@ Current limitations:
 
 Implemented mitigations:
 
-- Uploads are validated by extension, size, file signature, and real DOCX/PDF structure.
+- Uploads are validated by extension, size, and real document structure; PDF uploads also have a file-signature check. DOCX uploads are validated by ZIP structure and required parts.
 - Stored files use generated UUID names; path traversal is rejected.
 - Uploaded files are capped at 10 MB by default and streamed into a bounded reader.
 - Template output is autoescaped, and client-side status rendering uses `textContent`.
@@ -441,7 +456,7 @@ Use synthetic samples or non-sensitive documents for evaluation.
 
 - The DOCX and PDF mock workflows are implemented, covered by automated tests, and were verified end-to-end against Neon PostgreSQL on 2026-11-02.
 - PostgreSQL migration `0001`, schema readiness, startup, `/health`, and the synthetic DOCX/PDF smoke workflow are verified.
-- Gemini, OpenAI, Anthropic, and OpenAI-compatible request handling is covered by mocked tests; **no live real-provider call is verified**.
+- Gemini, OpenAI, Anthropic, and OpenAI-compatible request handling is covered by mocked tests; the automated suite makes **no live provider calls**. A manual Gemini smoke was previously reported as successful, but no repository evidence confirms it; OpenAI, Anthropic, and OpenAI-compatible are not live-verified.
 - Provider switching requires only `AI_PROVIDER`, the matching API key, and the configured model; missing keys fail explicitly rather than falling back to mock.
 - The automated suite uses isolated SQLite databases; there is no automated PostgreSQL integration job.
 - Genuine screenshots are available in `screenshots/`.
@@ -450,11 +465,13 @@ Use synthetic samples or non-sensitive documents for evaluation.
 - Zero-cost deployment assessment: no safe public deployment is practical under the current no-authentication and ephemeral-storage constraints; see [docs/deployment-assessment.md](docs/deployment-assessment.md).
 - No CI workflow, Docker configuration, or dependency lockfile exists.
 - No authentication, rate limiting, CSRF protection, or output retention controls exist.
-- DOCX formatting is approximate; PDF output is a reconstructed text PDF that intentionally does not preserve original graphics or exact layout.
+- DOCX formatting is approximate. PDF output is a reconstructed text PDF: page count and page sizes are preserved, and raster images and vector graphics are preserved where redaction succeeds, but exact text layout is not guaranteed and text baked into raster images is not translated.
 
 ## Demo video
 
 **Not recorded.** Follow the 60–90 second script in [docs/demo-script.md](docs/demo-script.md). Recording still requires a user-operated external tool such as Loom; no video URL is claimed.
+
+Loom link placeholder (fill in after recording): `https://www.loom.com/share/<recorded-demo-id>`
 
 ## Screenshots
 

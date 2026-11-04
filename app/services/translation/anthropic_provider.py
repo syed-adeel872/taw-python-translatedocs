@@ -16,6 +16,10 @@ from app.services.translation.prompts import (
     build_batch_prompt,
 )
 
+# Application-selected conservative output cap. This is NOT the model maximum
+# (Claude Sonnet 4.5 supports up to 64,000 output tokens); it is a safe
+# default to avoid oversized batches. Reduce AI_BATCH_SIZE if a batch exceeds
+# this, or raise the constant after verifying model documentation.
 ANTHROPIC_MAX_OUTPUT_TOKENS = 8192
 
 

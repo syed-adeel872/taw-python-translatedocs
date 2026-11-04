@@ -57,12 +57,10 @@ def test_parse_rejects_invalid_payloads(raw, expected):
         parse_translation_payload(raw, expected)
 
 
-def test_prompt_contains_language_and_count():
-    prompt = build_batch_prompt(["Hello", "World"], "auto", "es")
-    assert "Spanish" in prompt
-    assert "Segments (2 total)" in prompt
-    assert "[1] Hello" in prompt
-    assert '"translations"' in prompt
+def test_prompt_contains_conciseness_guidance():
+    prompt = build_batch_prompt(["Hello", "World"], "en", "es")
+    assert "concise" in prompt
+    assert "quantity" in prompt.lower() or "quantities" in prompt.lower()
 
 
 def test_service_batches_and_preserves_order():
@@ -108,6 +106,14 @@ def test_gemini_error_classification():
     assert isinstance(_classify_gemini_error(FakeError("resource exhausted", 429)), RateLimitError)
     assert isinstance(
         _classify_gemini_error(FakeError("API key not valid", 400)),
+        ProviderConfigurationError,
+    )
+    assert isinstance(
+        _classify_gemini_error(FakeError("permission denied", 403)),
+        ProviderConfigurationError,
+    )
+    assert isinstance(
+        _classify_gemini_error(FakeError("model not found", 404)),
         ProviderConfigurationError,
     )
     assert "timeout" not in _classify_gemini_error(FakeError("deadline exceeded")).user_message.lower()
