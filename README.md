@@ -460,7 +460,7 @@ Use synthetic samples or non-sensitive documents for evaluation.
 - Provider switching requires only `AI_PROVIDER`, the matching API key, and the configured model; missing keys fail explicitly rather than falling back to mock.
 - The automated suite uses isolated SQLite databases; there is no automated PostgreSQL integration job.
 - Genuine screenshots are available in `screenshots/`.
-- No demo video is recorded; the recording script is available at [docs/demo-script.md](docs/demo-script.md).
+- A 74.6-second demo recording is available via the Google Drive link in the Demo Video section.
 - No deployment URL, deployment configuration, or public demo exists.
 - Zero-cost deployment assessment: no safe public deployment is practical under the current no-authentication and ephemeral-storage constraints; see [docs/deployment-assessment.md](docs/deployment-assessment.md).
 - No CI workflow, Docker configuration, or dependency lockfile exists.
@@ -469,9 +469,7 @@ Use synthetic samples or non-sensitive documents for evaluation.
 
 ## Demo video
 
-**Not recorded.** Follow the 60–90 second script in [docs/demo-script.md](docs/demo-script.md). Recording still requires a user-operated external tool such as Loom; no video URL is claimed.
-
-Loom link placeholder (fill in after recording): `https://www.loom.com/share/<recorded-demo-id>`
+**Demo video:** [Watch Demo](https://drive.google.com/file/d/1Kp_6FdXCyYav2FD13-1MmH3npJL8B0iz/view?usp=sharing)
 
 ## Screenshots
 
