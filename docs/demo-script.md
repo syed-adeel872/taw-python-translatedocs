@@ -98,12 +98,11 @@ Target length: **60–90 seconds**. Use the synthetic files in `samples/` only. 
 
 **Say:**
 
-> The repository includes 203 passing and 2 skipped automated tests, genuine screenshots, a demo script, and explicit limitations. The remaining demo deliverable is recording this walkthrough.
+> The repository includes 223 passed and 2 skipped automated tests, genuine screenshots, a demo script, and explicit limitations. A 74.6-second recording is available via the Google Drive link in the README Demo Video section.
 
 ## After recording (Loom)
 
-1. Record the walkthrough with Loom (or an equivalent screen recorder) using the flow above. Keep `.env`, terminals, database URLs, job tokens, and private documents off screen.
-2. Upload the recording to Loom and copy the share URL.
-3. Paste the share URL into `README.md` in the "Demo video" section, replacing the placeholder `https://www.loom.com/share/<recorded-demo-id>`.
-4. Record the job IDs and output filenames created during the demo, then remove only those rows and generated files. Do not truncate tables or delete unrelated data.
-5. Do not claim a deployment or public URL; the demo remains a local recorded demonstration unless an employer authorizes otherwise.
+1. A 74.6-second demo recording is already available via the Google Drive link in the README Demo Video section.
+2. The recording uses the synthetic samples in `samples/` only and does not show `.env`, terminals, database URLs, job tokens, or private documents.
+3. Record the job IDs and output filenames created during any new walkthrough, then remove only those rows and generated files. Do not truncate tables or delete unrelated data.
+4. Do not claim a deployment or public URL; the demo remains a local recorded demonstration unless an employer authorizes otherwise.
